@@ -36,74 +36,71 @@ class OceanService {
   OceanService(this._dio, this._locationService);
 
   Future<OceanData> fetchOceanData() async {
-  // 1. Récupère la position GPS
-  final position = await _locationService.getCurrentPosition();
-  if (position == null) {
-    return const OceanData(error: 'Position GPS indisponible');
-  }
-  final lat = position.latitude;
-  final lon = position.longitude;
-
-  try {
-    // 2. Appel Open-Meteo Marine API
-    final marineResponse = await _dio.get(
-      'https://marine-api.open-meteo.com/v1/marine',
-      queryParameters: {
-        'latitude': lat,
-        'longitude': lon,
-        'current': 'sea_surface_temperature,wave_height',
-      },
-    );
-
-    // 3. Appel Open-Meteo Weather pour la température air
-    final weatherResponse = await _dio.get(
-      'https://api.open-meteo.com/v1/forecast',
-      queryParameters: {
-        'latitude': lat,
-        'longitude': lon,
-        'current': 'temperature_2m',
-      },
-    );
-
-    final marineData = marineResponse.data;
-    final weatherData = weatherResponse.data;
-
-    final seaTemp = (marineData['current']?['sea_surface_temperature'] as num?)?.toDouble();
-    final waveHeight = (marineData['current']?['wave_height'] as num?)?.toDouble();
-    final airTemp = (weatherData['current']?['temperature_2m'] as num?)?.toDouble();
-
-    // 4. Geocoding inversé — nom de ville + rue
-    String? locationLabel;
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lon);
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final parts = [
-          if (place.locality?.isNotEmpty == true) place.locality,
-          if (place.thoroughfare?.isNotEmpty == true) place.thoroughfare,
-        ];
-        locationLabel = parts.isNotEmpty
-            ? parts.join(', ')
-            : '${lat.toStringAsFixed(2)}, ${lon.toStringAsFixed(2)}';
-      }
-    } catch (_) {
-      locationLabel = '${lat.toStringAsFixed(2)}, ${lon.toStringAsFixed(2)}';
+    final position = await _locationService.getCurrentPosition();
+    if (position == null) {
+      return const OceanData(error: 'Position GPS indisponible');
     }
+    final lat = position.latitude;
+    final lon = position.longitude;
 
-    return OceanData(
-      seaTempCelsius: seaTemp,
-      airTempCelsius: airTemp,
-      waveHeight: waveHeight,
-      locationLabel: locationLabel,
-    );
-  } on DioException catch (e) {
-    return OceanData(error: 'Erreur réseau: ${e.message}');
-  } catch (e) {
-    return OceanData(error: 'Erreur: $e');
+    try {
+      final marineResponse = await _dio.get(
+        'https://marine-api.open-meteo.com/v1/marine',
+        queryParameters: {
+          'latitude': lat,
+          'longitude': lon,
+          'current': 'sea_surface_temperature,wave_height',
+        },
+      );
+
+      final weatherResponse = await _dio.get(
+        'https://api.open-meteo.com/v1/forecast',
+        queryParameters: {
+          'latitude': lat,
+          'longitude': lon,
+          'current': 'temperature_2m',
+        },
+      );
+
+      final marineData = marineResponse.data;
+      final weatherData = weatherResponse.data;
+
+      final seaTemp = (marineData['current']?['sea_surface_temperature'] as num?)?.toDouble();
+      final waveHeight = (marineData['current']?['wave_height'] as num?)?.toDouble();
+      final airTemp = (weatherData['current']?['temperature_2m'] as num?)?.toDouble();
+
+      String? locationLabel;
+      try {
+        final placemarks = await placemarkFromCoordinates(lat, lon);
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          final parts = [
+            if (place.locality?.isNotEmpty == true) place.locality,
+            if (place.thoroughfare?.isNotEmpty == true) place.thoroughfare,
+          ];
+          locationLabel = parts.isNotEmpty
+              ? parts.join(', ')
+              : '${lat.toStringAsFixed(2)}, ${lon.toStringAsFixed(2)}';
+        }
+      } catch (_) {
+        locationLabel = '${lat.toStringAsFixed(2)}, ${lon.toStringAsFixed(2)}';
+      }
+
+      return OceanData(
+        seaTempCelsius: seaTemp,
+        airTempCelsius: airTemp,
+        waveHeight: waveHeight,
+        locationLabel: locationLabel,
+      );
+    } on DioException catch (e) {
+      return OceanData(error: 'Erreur réseau: ${e.message}');
+    } catch (e) {
+      return OceanData(error: 'Erreur: $e');
+    }
   }
-}
+} // ← accolade fermante de OceanService
 
-// Providers
+// Providers — EN DEHORS de la classe
 final oceanServiceProvider = Provider<OceanService>((ref) {
   return OceanService(
     Dio(),
@@ -111,7 +108,6 @@ final oceanServiceProvider = Provider<OceanService>((ref) {
   );
 });
 
-// AsyncNotifier qui charge les données au démarrage
 class OceanNotifier extends AsyncNotifier<OceanData> {
   @override
   Future<OceanData> build() => _fetch();
