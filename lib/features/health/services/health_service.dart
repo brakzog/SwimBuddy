@@ -28,6 +28,7 @@ class HealthService {
     HealthDataType.HEART_RATE,
     HealthDataType.ACTIVE_ENERGY_BURNED,
     HealthDataType.DISTANCE_DELTA,
+    HealthDataType.WORKOUT,
   ];
 
   // Demande les permissions santé à l'utilisateur
@@ -59,9 +60,13 @@ class HealthService {
     required DateTime to,
   }) async {
     try {
+
+      final searchFrom = from.subtract(const Duration(minutes: 30));
+      final searchTo = to.add(const Duration(minutes: 30));
+
       final data = await _health.getHealthDataFromTypes(
-        startTime: from,
-        endTime: to,
+        startTime: searchFrom,
+        endTime: searchTo,
         types: _types,
       );
 
