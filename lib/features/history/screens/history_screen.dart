@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/swim_session.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../health/services/health_service.dart';
 
 // ─── Filtre période ───────────────────────────────────────────────────────────
 
@@ -119,7 +120,16 @@ class HistoryScreen extends ConsumerWidget {
     final filter = ref.watch(periodFilterProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Historique')),
+      appBar: AppBar(
+        title: const Text('Historique'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_outlined),
+            tooltip: 'Importer depuis Apple Watch',
+            onPressed: () => _showImportDialog(context, ref),
+          ),
+        ],
+      ),
       body: sessionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => const Center(child: Text('Une erreur est survenue.')),
@@ -183,6 +193,82 @@ class HistoryScreen extends ConsumerWidget {
               ),
       ),
     );
+  }
+
+  Future<void> _showImportDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SwimColors.surface,
+        title: const Text('Importer depuis Apple Watch',
+            style: TextStyle(color: SwimColors.textPrimary)),
+        content: const Text(
+          'Importer vos nages des 30 derniers jours depuis HealthKit ?',
+          style: TextStyle(color: SwimColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler',
+                style: TextStyle(color: SwimColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Importer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    // Affiche un indicateur de chargement
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final healthService = ref.read(healthServiceProvider);
+      final firestoreService = ref.read(firestoreServiceProvider);
+
+      final workouts = await healthService.fetchSwimmingWorkouts(days: 30);
+
+      // Récupère les sessions existantes pour éviter les doublons
+      final existing = await firestoreService.fetchRecentSessions(limit: 100);
+      final existingDates = existing.map((s) => s.startedAt.toIso8601String()).toSet();
+
+      int imported = 0;
+      for (final workout in workouts) {
+        if (!existingDates.contains(workout.startedAt.toIso8601String())) {
+          await firestoreService.saveSession(workout);
+          imported++;
+        }
+      }
+
+      if (context.mounted) {
+        Navigator.pop(context); // ferme le loader
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(imported > 0
+                ? '$imported session(s) importée(s) !'
+                : 'Aucune nouvelle session à importer.'),
+            backgroundColor: SwimColors.wave,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de l\'import'),
+            backgroundColor: SwimColors.danger,
+          ),
+        );
+      }
+    }
   }
 }
 
