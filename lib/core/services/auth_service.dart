@@ -14,17 +14,21 @@ class AuthService {
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   Future<UserCredential?> signInWithGoogle() async {
-    try {
-      final googleUser = await GoogleSignIn.instance.authenticate();
-      final googleAuth = googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-      );
-      return _auth.signInWithCredential(credential);
-    } catch (e) {
-      return null;
-    }
+  try {
+    // Force l'initialisation avec le CLIENT_ID iOS
+    await GoogleSignIn.instance.initialize(
+      clientId: '450499877642-b4bsectf9rnv9fmr9d8ahb67umorpn7v.apps.googleusercontent.com',
+    );
+    final googleUser = await GoogleSignIn.instance.authenticate();
+    final googleAuth = googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      idToken: googleAuth.idToken,
+    );
+    return _auth.signInWithCredential(credential);
+  } catch (e) {
+    rethrow;
   }
+}
 
   Future<UserCredential?> signInWithApple() async {
     final rawNonce = _generateNonce();
