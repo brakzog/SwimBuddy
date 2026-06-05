@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:swimtracker/features/auth/screens/login_screen.dart';
 import '../../../core/services/prefs_service.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../core/services/auth_service.dart';
@@ -236,8 +237,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: 'Retour à l\'écran de connexion',
               trailing: TextButton(
                 onPressed: () async {
-                  await ref.read(authServiceProvider).signOut();
-                },
+  await ref.read(authServiceProvider).signOut();
+  if (context.mounted) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+          },
                 child: const Text('Déconnexion',
                     style: TextStyle(color: SwimColors.danger, fontSize: 13)),
               ),
