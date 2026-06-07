@@ -233,7 +233,15 @@ class HistoryScreen extends ConsumerWidget {
       final healthService = ref.read(healthServiceProvider);
       final firestoreService = ref.read(firestoreServiceProvider);
 
-      final workouts = await healthService.fetchSwimmingWorkouts(days: 30);
+      final workouts = await healthService.fetchSwimmingWorkouts(days: 90);
+
+// Debug temporaire — à supprimer après
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Workouts trouvés: ${workouts.length}')),
+        );
+        await Future.delayed(const Duration(seconds: 2));
+      }
 
       // Récupère les sessions existantes pour éviter les doublons
       final existing = await firestoreService.fetchRecentSessions(limit: 100);

@@ -114,7 +114,7 @@ class HealthService {
     }
   }
 
-  Future<List<SwimSession>> fetchSwimmingWorkouts({int days = 30}) async {
+  Future<List<SwimSession>> fetchSwimmingWorkouts({int days = 90}) async {
     final now = DateTime.now();
     final from = now.subtract(Duration(days: days));
 
@@ -127,7 +127,7 @@ class HealthService {
       );
 
       // Filtre uniquement la natation
-      final swimmingWorkouts = workouts.where((w) {
+    /*  final swimmingWorkouts = workouts.where((w) {
         final value = w.value;
         if (value is WorkoutHealthValue) {
           return value.workoutActivityType == HealthWorkoutActivityType.SWIMMING ||
@@ -135,7 +135,16 @@ class HealthService {
               value.workoutActivityType == HealthWorkoutActivityType.SWIMMING_POOL;
         }
         return false;
+      }).toList();*/
+      final swimmingWorkouts = workouts.where((w) {
+        return w.value is WorkoutHealthValue;
       }).toList();
+
+// Debug — à supprimer après
+      for (final w in swimmingWorkouts) {
+        final v = w.value as WorkoutHealthValue;
+        print('🏋️ Workout: ${v.workoutActivityType} — ${w.dateFrom}');
+      }
 
       if (swimmingWorkouts.isEmpty) return [];
 
