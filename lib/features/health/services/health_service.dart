@@ -29,6 +29,7 @@ class HealthService {
     HealthDataType.HEART_RATE,
     HealthDataType.ACTIVE_ENERGY_BURNED,
     HealthDataType.DISTANCE_DELTA,
+    HealthDataType.DISTANCE_SWIMMING,
     HealthDataType.WORKOUT,
   ];
 
