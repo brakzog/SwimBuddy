@@ -203,7 +203,7 @@ class HistoryScreen extends ConsumerWidget {
         title: const Text('Importer depuis Apple Watch',
             style: TextStyle(color: SwimColors.textPrimary)),
         content: const Text(
-          'Importer vos nages des 30 derniers jours depuis HealthKit ?',
+          'Importer vos nages des 90 derniers jours depuis HealthKit ?',
           style: TextStyle(color: SwimColors.textSecondary),
         ),
         actions: [
@@ -222,7 +222,6 @@ class HistoryScreen extends ConsumerWidget {
 
     if (confirmed != true || !context.mounted) return;
 
-    // Affiche un indicateur de chargement
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -235,33 +234,35 @@ class HistoryScreen extends ConsumerWidget {
 
       final workouts = await healthService.fetchSwimmingWorkouts(days: 90);
 
-// Debug temporaire — à supprimer après
       if (context.mounted) {
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Workouts trouvés: ${workouts.length}')),
+          SnackBar(
+            content: Text('${workouts.length} session(s) trouvée(s)'),
+            duration: const Duration(seconds: 5),
+          ),
         );
-        await Future.delayed(const Duration(seconds: 2));
       }
 
-      // Récupère les sessions existantes pour éviter les doublons
+      // Filtre les sessions debug (durationSeconds == 0)
+      final realWorkouts = workouts.where((w) => w.durationSeconds > 0).toList();
+      if (realWorkouts.isEmpty) return;
+
       final existing = await firestoreService.fetchRecentSessions(limit: 100);
       final existingDates = existing.map((s) => s.startedAt.toIso8601String()).toSet();
 
       int imported = 0;
-      for (final workout in workouts) {
+      for (final workout in realWorkouts) {
         if (!existingDates.contains(workout.startedAt.toIso8601String())) {
           await firestoreService.saveSession(workout);
           imported++;
         }
       }
 
-      if (context.mounted) {
-        Navigator.pop(context); // ferme le loader
+      if (context.mounted && imported > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(imported > 0
-                ? '$imported session(s) importée(s) !'
-                : 'Aucune nouvelle session à importer.'),
+            content: Text('$imported session(s) importée(s) !'),
             backgroundColor: SwimColors.wave,
           ),
         );
@@ -270,9 +271,10 @@ class HistoryScreen extends ConsumerWidget {
       if (context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur lors de l\'import'),
+          SnackBar(
+            content: Text('Erreur: $e'),
             backgroundColor: SwimColors.danger,
+            duration: const Duration(seconds: 8),
           ),
         );
       }

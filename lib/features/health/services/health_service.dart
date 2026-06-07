@@ -119,21 +119,30 @@ class HealthService {
     final from = now.subtract(Duration(days: days));
 
     try {
-      final workouts = await _health.getHealthDataFromTypes(
+      final rawWorkouts = await _health.getHealthDataFromTypes(
         startTime: from,
         endTime: now,
         types: [HealthDataType.WORKOUT],
       );
 
-      // Dans health 13.x, workoutType est une String dans workoutSummary
-      final swimmingWorkouts = workouts.where((w) {
+      final swimmingWorkouts = rawWorkouts.where((w) {
         final summary = w.workoutSummary;
         if (summary == null) return false;
-        final type = summary.workoutType.toUpperCase();
-        return type.contains('SWIM');
+        return summary.workoutType.toUpperCase().contains('SWIM');
       }).toList();
 
-      if (swimmingWorkouts.isEmpty) return [];
+      // Debug — retourne une session fantôme si rien trouvé
+      if (swimmingWorkouts.isEmpty) {
+        return [
+          SwimSession(
+            startedAt: DateTime.now(),
+            endedAt: DateTime.now(),
+            durationSeconds: 0,
+            distanceMeters: 0,
+            locationLabel: 'DEBUG: ${rawWorkouts.length} workouts bruts, 0 natation trouvée',
+          ),
+        ];
+      }
 
       final List<SwimSession> sessions = [];
       for (final workout in swimmingWorkouts) {
@@ -185,7 +194,15 @@ class HealthService {
       }
       return sessions;
     } catch (e) {
-      return [];
+      return [
+        SwimSession(
+          startedAt: DateTime.now(),
+          endedAt: DateTime.now(),
+          durationSeconds: 0,
+          distanceMeters: 0,
+          locationLabel: 'DEBUG ERROR: $e',
+        ),
+      ];
     }
   }
 }
