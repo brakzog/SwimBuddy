@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:swimtracker/core/services/native_health_service.dart';
 import '../../../core/models/swim_session.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -229,10 +230,8 @@ class HistoryScreen extends ConsumerWidget {
     );
 
     try {
-      final healthService = ref.read(healthServiceProvider);
-      final firestoreService = ref.read(firestoreServiceProvider);
-
-      final workouts = await healthService.fetchSwimmingWorkouts(days: 90);
+      final nativeService = ref.read(nativeHealthServiceProvider);
+      final workouts = await nativeService.fetchSwimmingWorkouts(days: 90);
 
       if (context.mounted) {
         Navigator.pop(context);
