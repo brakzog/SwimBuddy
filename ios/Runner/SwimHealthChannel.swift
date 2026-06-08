@@ -49,7 +49,7 @@ class SwimHealthChannel {
             let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
             let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: Date())
             let swimmingPredicate = HKQuery.predicateForWorkouts(with: .swimming)
-            let openWaterPredicate = HKQuery.predicateForWorkouts(with: .openWaterSwimming)
+            let openWaterPredicate = HKQuery.predicateForWorkouts(with: .swimming)
             
             let swimmingTypes = NSCompoundPredicate(orPredicateWithSubpredicates: [
                 swimmingPredicate, openWaterPredicate
@@ -107,7 +107,7 @@ class SwimHealthChannel {
             "durationSeconds": Int(workout.duration),
             "distanceMeters": workout.totalDistance?.doubleValue(for: .meter()) ?? 0,
             "calories": workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
-            "workoutType": workout.workoutActivityType == .openWaterSwimming
+            "workoutType": workout.workoutActivityType == .swimming
                 ? "openWater" : "pool",
         ]
         

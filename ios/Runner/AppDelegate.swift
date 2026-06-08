@@ -16,8 +16,9 @@ import UIKit
             return super.application(application, didFinishLaunchingWithOptions: launchOptions)
         }
         
-        let registrar = self.registrar(forPlugin: "SwimHealthChannel")
-        swimHealthChannel.register(with: registrar)
+        if let registrar = self.registrar(forPlugin: "SwimHealthChannel") {
+          swimHealthChannel.register(with: registrar)
+        }
         
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
