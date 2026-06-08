@@ -248,6 +248,7 @@ class HistoryScreen extends ConsumerWidget {
       final realWorkouts = workouts.where((w) => w.durationSeconds > 0).toList();
       if (realWorkouts.isEmpty) return;
 
+      final firestoreService = ref.read(firestoreServiceProvider); // ← ajoute cette ligne
       final existing = await firestoreService.fetchRecentSessions(limit: 100);
       final existingDates = existing.map((s) => s.startedAt.toIso8601String()).toSet();
 
