@@ -5,6 +5,7 @@ import '../../../core/models/swim_session.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../health/services/health_service.dart';
+import '../../../core/services/firestore_service.dart';
 
 // ─── Filtre période ───────────────────────────────────────────────────────────
 
