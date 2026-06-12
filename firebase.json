@@ -1,1 +1,18 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"swimbuddy-app","configurations":{"android":"1:450499877642:android:ed6e0015666e8fc8c538f3","ios":"1:450499877642:ios:f667f3e409f1eb13c538f3"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "swimbuddy-app",
+          "configurations": {
+            "android": "1:450499877642:android:ed6e0015666e8fc8c538f3",
+            "ios": "1:450499877642:ios:f667f3e409f1eb13c538f3"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

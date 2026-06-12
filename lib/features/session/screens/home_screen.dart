@@ -5,6 +5,7 @@ import '../../../core/services/firestore_service.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../health/services/health_service.dart';
 import '../../ocean/services/ocean_service.dart';
+import '../../jellyfish/models/jellyfish_report.dart';
 import '../../jellyfish/services/jellyfish_service.dart';
 import '../../../core/services/prefs_service.dart';
 import '../providers/session_notifier.dart';
@@ -306,27 +307,31 @@ class _WeatherPillsError extends StatelessWidget {
 
 // ─── Card méduses ─────────────────────────────────────────────────────────────
 
-class _JellyfishCard extends StatelessWidget {
+class _JellyfishCard extends ConsumerWidget {
   final JellyfishData data;
   const _JellyfishCard({required this.data});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isAlert = data.hasAlert;
     final bgColor =
         isAlert ? const Color(0xFF1A0808) : const Color(0xFF041A0E);
-    final borderColor =
-        isAlert ? SwimColors.danger.withOpacity(0.4) : SwimColors.wave.withOpacity(0.3);
+    final borderColor = isAlert
+        ? SwimColors.danger.withOpacity(0.4)
+        : SwimColors.wave.withOpacity(0.3);
     final iconColor = isAlert ? SwimColors.danger : SwimColors.wave;
-    final titleColor = isAlert ? const Color(0xFFF09595) : const Color(0xFF9FE1CB);
+    final titleColor =
+        isAlert ? const Color(0xFFF09595) : const Color(0xFF9FE1CB);
     final icon =
         isAlert ? Icons.warning_amber_outlined : Icons.check_circle_outline;
     final title = isAlert
-        ? '${data.reportCount} méduse(s) signalée(s)'
-        : 'Zone sûre';
+        ? '${data.alertReportCount} signalement(s) alerte'
+        : 'Zone OK';
     final subtitle = isAlert && data.nearestKm != null
-        ? 'À ${data.nearestKm!.toStringAsFixed(1)} km · il y a ${data.hoursAgo}h'
-        : 'Aucun signalement dans un rayon de 50 km';
+        ? 'Plus proche à ${data.nearestKm!.toStringAsFixed(1)} km · il y a ${data.hoursAgo}h'
+        : data.safeReportCount > 0
+            ? '${data.safeReportCount} signalement(s) “pas de méduse” dans votre rayon'
+            : 'Aucun signalement récent dans votre rayon';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -335,49 +340,157 @@ class _JellyfishCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor, width: 0.5),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: iconColor, size: 17),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: iconColor, size: 17),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: titleColor)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            fontSize: 11, color: SwimColors.textMuted)),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(isAlert ? 'Alerte' : 'OK',
                     style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 10,
                         fontWeight: FontWeight.w500,
-                        color: titleColor)),
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 11, color: SwimColors.textMuted)),
-              ],
-            ),
+                        color: iconColor)),
+              ),
+            ],
           ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(isAlert ? 'Alerte' : 'OK',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: iconColor)),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _showReportDialog(context, ref),
+            icon: const Icon(Icons.add_location_alt_outlined, size: 17),
+            label: const Text('Signaler la zone'),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showReportDialog(BuildContext context, WidgetRef ref) async {
+    final type = await showModalBottomSheet<JellyfishReportType>(
+      context: context,
+      backgroundColor: SwimColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Que veux-tu signaler ?',
+                style: TextStyle(
+                  color: SwimColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _ReportTile(
+                icon: Icons.check_circle_outline,
+                label: JellyfishReportType.none.label,
+                type: JellyfishReportType.none,
+              ),
+              _ReportTile(
+                icon: Icons.water_outlined,
+                label: JellyfishReportType.few.label,
+                type: JellyfishReportType.few,
+              ),
+              _ReportTile(
+                icon: Icons.warning_amber_outlined,
+                label: JellyfishReportType.many.label,
+                type: JellyfishReportType.many,
+              ),
+              _ReportTile(
+                icon: Icons.personal_injury_outlined,
+                label: JellyfishReportType.sting.label,
+                type: JellyfishReportType.sting,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (type == null) return;
+
+    try {
+      await ref.read(jellyfishProvider.notifier).submitReport(type);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Signalement envoyé, merci !')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Signalement impossible: $e')),
+        );
+      }
+    }
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final JellyfishReportType type;
+
+  const _ReportTile({
+    required this.icon,
+    required this.label,
+    required this.type,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        icon,
+        color: type == JellyfishReportType.none
+            ? SwimColors.wave
+            : SwimColors.warning,
+      ),
+      title: Text(
+        label,
+        style: const TextStyle(color: SwimColors.textPrimary),
+      ),
+      onTap: () => Navigator.of(context).pop(type),
     );
   }
 }
