@@ -37,6 +37,7 @@ class JellyfishData {
 
 class JellyfishService {
   static const _collection = 'jellyfish_reports';
+  static const _acriBaseUrl = 'https://meduse.acri.fr/api/v1';
   static const _inaturalistTaxonId = 48332; // Scyphozoa, true jellyfish.
   static const _inaturalistBaseUrl = 'https://api.inaturalist.org/v1';
 
@@ -73,13 +74,25 @@ class JellyfishService {
         since: since,
       );
 
-      final externalReports = await _fetchINaturalistReports(
+      final acriReports = await _fetchAcriReports(
         lat: position.latitude,
         lng: position.longitude,
         radiusKm: radiusKm,
         now: now,
       );
 
+      // iNaturalist reste un fallback légal/gratuit, mais ACRI est bien plus
+      // pertinent pour la France car il gère aussi les observations "none".
+      final inaturalistReports = acriReports.isEmpty
+          ? await _fetchINaturalistReports(
+              lat: position.latitude,
+              lng: position.longitude,
+              radiusKm: radiusKm,
+              now: now,
+            )
+          : const <JellyfishReport>[];
+
+      final externalReports = [...acriReports, ...inaturalistReports];
       final nearbyReports = [...communityReports, ...externalReports]
         ..sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
 
@@ -134,6 +147,98 @@ class JellyfishService {
             )))
         .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
         .toList();
+  }
+
+  Future<List<JellyfishReport>> _fetchAcriReports({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required DateTime now,
+  }) async {
+    try {
+      final since = now.toUtc().subtract(const Duration(hours: 72));
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_acriBaseUrl/campaigns/meduse/observations',
+        queryParameters: {
+          'campaign': 'meduse',
+          'filter': "observation_date ge '${_formatIsoUtc(since)}'",
+          'count': true,
+          'limit': 300,
+        },
+        options: Options(
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'SwimBuddy/1.0 (ACRI Meduse public API lookup)',
+          },
+        ),
+      );
+
+      final values = response.data?['value'];
+      if (values is! List) return const [];
+
+      return values
+          .whereType<Map<String, dynamic>>()
+          .map((json) => _reportFromAcri(json, now))
+          .whereType<JellyfishReport>()
+          .map((report) => report.copyWithDistance(_haversineKm(
+                lat,
+                lng,
+                report.lat,
+                report.lng,
+              )))
+          .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
+          .toList();
+    } catch (_) {
+      // ACRI est la source externe principale, mais elle reste externe :
+      // si elle répond mal, l'app continue avec Firestore puis iNaturalist.
+      return const [];
+    }
+  }
+
+  JellyfishReport? _reportFromAcri(
+    Map<String, dynamic> json,
+    DateTime now,
+  ) {
+    final id = json['id'];
+    final location = json['location'];
+    if (id == null || location is! List || location.length < 2) return null;
+
+    final lat = (location[0] as num?)?.toDouble();
+    final lng = (location[1] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+
+    final data = json['data'] as Map<String, dynamic>?;
+    final quantity = data?['quantity'] as String?;
+    final observedAt = _readDate(json['observation_date']) ?? now;
+    final species = data?['species'] as String?;
+    final comment = data?['comment'] as String?;
+
+    return JellyfishReport(
+      id: 'acri_$id',
+      type: _typeFromAcriQuantity(quantity),
+      source: JellyfishReportSource.acri,
+      lat: lat,
+      lng: lng,
+      reportedAt: observedAt,
+      expiresAt: observedAt.add(const Duration(days: 3)),
+      species: species,
+      locationLabel: comment == null || comment.trim().isEmpty
+          ? 'Observation ACRI Méduse'
+          : comment.trim(),
+    );
+  }
+
+  JellyfishReportType _typeFromAcriQuantity(String? quantity) {
+    return switch (quantity) {
+      'none' => JellyfishReportType.none,
+      'one' => JellyfishReportType.few,
+      'several' => JellyfishReportType.many,
+      'many' => JellyfishReportType.many,
+      'lots' => JellyfishReportType.many,
+      _ => JellyfishReportType.few,
+    };
   }
 
   Future<List<JellyfishReport>> _fetchINaturalistReports({
@@ -267,6 +372,10 @@ class JellyfishService {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+
+  String _formatIsoUtc(DateTime date) {
+    return date.toUtc().toIso8601String();
   }
 
   double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
