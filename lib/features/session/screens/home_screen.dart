@@ -328,10 +328,12 @@ class _JellyfishCard extends ConsumerWidget {
         ? '${data.alertReportCount} signalement(s) alerte'
         : 'Zone OK';
     final subtitle = isAlert && data.nearestKm != null
-        ? 'Plus proche à ${data.nearestKm!.toStringAsFixed(1)} km · il y a ${data.hoursAgo}h'
+        ? 'Plus proche à ${data.nearestKm!.toStringAsFixed(1)} km · il y a ${data.hoursAgo}h · ${data.externalReportCount} via iNaturalist'
         : data.safeReportCount > 0
-            ? '${data.safeReportCount} signalement(s) “pas de méduse” dans votre rayon'
-            : 'Aucun signalement récent dans votre rayon';
+            ? '${data.safeReportCount} signalement(s) “pas de méduse” · ${data.externalReportCount} observation(s) iNaturalist'
+            : data.externalReportCount > 0
+                ? '${data.externalReportCount} observation(s) iNaturalist récente(s) dans votre rayon'
+                : 'Aucun signalement récent dans votre rayon';
 
     return Container(
       padding: const EdgeInsets.all(14),

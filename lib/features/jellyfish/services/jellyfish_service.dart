@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +13,8 @@ class JellyfishData {
   final int reportCount;
   final int safeReportCount;
   final int alertReportCount;
+  final int communityReportCount;
+  final int externalReportCount;
   final double? nearestKm;
   final int? hoursAgo;
   final bool hasAlert;
@@ -22,6 +25,8 @@ class JellyfishData {
     this.reportCount = 0,
     this.safeReportCount = 0,
     this.alertReportCount = 0,
+    this.communityReportCount = 0,
+    this.externalReportCount = 0,
     this.nearestKm,
     this.hoursAgo,
     this.hasAlert = false,
@@ -32,18 +37,22 @@ class JellyfishData {
 
 class JellyfishService {
   static const _collection = 'jellyfish_reports';
+  static const _inaturalistTaxonId = 48332; // Scyphozoa, true jellyfish.
+  static const _inaturalistBaseUrl = 'https://api.inaturalist.org/v1';
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
   final LocationService _locationService;
   final PrefsService _prefsService;
+  final Dio _dio;
 
   JellyfishService(
     this._firestore,
     this._auth,
     this._locationService,
-    this._prefsService,
-  );
+    this._prefsService, {
+    Dio? dio,
+  }) : _dio = dio ?? Dio();
 
   Future<JellyfishData> fetchNearbyJellyfish() async {
     final position = await _locationService.getCurrentPosition();
@@ -56,26 +65,22 @@ class JellyfishService {
       final now = DateTime.now();
       final since = now.subtract(const Duration(hours: 48));
 
-      // Une seule clause Firestore volontairement : pas besoin d'index composite
-      // pour la V1, on filtre ensuite localement sur reportedAt et la distance.
-      final snapshot = await _firestore
-          .collection(_collection)
-          .where('expiresAt', isGreaterThan: Timestamp.fromDate(now))
-          .orderBy('expiresAt')
-          .limit(300)
-          .get();
+      final communityReports = await _fetchCommunityReports(
+        lat: position.latitude,
+        lng: position.longitude,
+        radiusKm: radiusKm,
+        now: now,
+        since: since,
+      );
 
-      final nearbyReports = snapshot.docs
-          .map(JellyfishReport.fromDoc)
-          .where((report) => report.reportedAt.isAfter(since))
-          .map((report) => report.copyWithDistance(_haversineKm(
-                position.latitude,
-                position.longitude,
-                report.lat,
-                report.lng,
-              )))
-          .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
-          .toList()
+      final externalReports = await _fetchINaturalistReports(
+        lat: position.latitude,
+        lng: position.longitude,
+        radiusKm: radiusKm,
+        now: now,
+      );
+
+      final nearbyReports = [...communityReports, ...externalReports]
         ..sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
 
       final alertReports = nearbyReports.where((r) => r.type.isAlert).toList();
@@ -86,6 +91,8 @@ class JellyfishService {
         reportCount: nearbyReports.length,
         safeReportCount: safeReports.length,
         alertReportCount: alertReports.length,
+        communityReportCount: communityReports.length,
+        externalReportCount: externalReports.length,
         nearestKm: nearestAlert?.distanceKm,
         hoursAgo: nearestAlert == null
             ? null
@@ -98,6 +105,136 @@ class JellyfishService {
     } catch (e) {
       return JellyfishData(error: 'Erreur: $e');
     }
+  }
+
+  Future<List<JellyfishReport>> _fetchCommunityReports({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required DateTime now,
+    required DateTime since,
+  }) async {
+    // Une seule clause Firestore volontairement : pas besoin d'index composite
+    // pour la V1, on filtre ensuite localement sur reportedAt et la distance.
+    final snapshot = await _firestore
+        .collection(_collection)
+        .where('expiresAt', isGreaterThan: Timestamp.fromDate(now))
+        .orderBy('expiresAt')
+        .limit(300)
+        .get();
+
+    return snapshot.docs
+        .map(JellyfishReport.fromDoc)
+        .where((report) => report.reportedAt.isAfter(since))
+        .map((report) => report.copyWithDistance(_haversineKm(
+              lat,
+              lng,
+              report.lat,
+              report.lng,
+            )))
+        .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
+        .toList();
+  }
+
+  Future<List<JellyfishReport>> _fetchINaturalistReports({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required DateTime now,
+  }) async {
+    try {
+      final since = now.subtract(const Duration(days: 7));
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_inaturalistBaseUrl/observations',
+        queryParameters: {
+          'taxon_id': _inaturalistTaxonId,
+          'lat': lat,
+          'lng': lng,
+          'radius': radiusKm.clamp(1, 50),
+          'd1': _formatDate(since),
+          'd2': _formatDate(now),
+          'has[]': 'geo',
+          'quality_grade': 'research,needs_id',
+          'order_by': 'observed_on',
+          'order': 'desc',
+          'per_page': 50,
+        },
+        options: Options(
+          sendTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          headers: {
+            'User-Agent': 'SwimBuddy/1.0 (jellyfish lookup; iNaturalist API)',
+          },
+        ),
+      );
+
+      final results = response.data?['results'];
+      if (results is! List) return const [];
+
+      return results
+          .whereType<Map<String, dynamic>>()
+          .map((json) => _reportFromINaturalist(json, now))
+          .whereType<JellyfishReport>()
+          .map((report) => report.copyWithDistance(_haversineKm(
+                lat,
+                lng,
+                report.lat,
+                report.lng,
+              )))
+          .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
+          .toList();
+    } catch (_) {
+      // L'API externe est un bonus : si elle répond mal ou pas du tout,
+      // l'app reste utilisable avec les signalements communautaires Firestore.
+      return const [];
+    }
+  }
+
+  JellyfishReport? _reportFromINaturalist(
+    Map<String, dynamic> json,
+    DateTime now,
+  ) {
+    final id = json['id'];
+    final coords = _readCoordinates(json);
+    if (id == null || coords == null) return null;
+
+    final observedAt = _readDate(json['time_observed_at']) ??
+        _readDate(json['observed_on']) ??
+        now;
+    final taxon = json['taxon'] as Map<String, dynamic>?;
+    final species = taxon == null
+        ? null
+        : (taxon['preferred_common_name'] ?? taxon['name']) as String?;
+
+    return JellyfishReport(
+      id: 'inaturalist_$id',
+      type: JellyfishReportType.few,
+      source: JellyfishReportSource.inaturalist,
+      lat: coords.$1,
+      lng: coords.$2,
+      reportedAt: observedAt,
+      expiresAt: observedAt.add(const Duration(days: 7)),
+      species: species,
+      locationLabel: 'Observation iNaturalist',
+    );
+  }
+
+  (double, double)? _readCoordinates(Map<String, dynamic> json) {
+    final geojson = json['geojson'] as Map<String, dynamic>?;
+    final coordinates = geojson?['coordinates'];
+    if (coordinates is List && coordinates.length >= 2) {
+      final lng = (coordinates[0] as num?)?.toDouble();
+      final lat = (coordinates[1] as num?)?.toDouble();
+      if (lat != null && lng != null) return (lat, lng);
+    }
+
+    final location = json['location'] as String?;
+    if (location == null || !location.contains(',')) return null;
+    final parts = location.split(',');
+    final lat = double.tryParse(parts[0].trim());
+    final lng = double.tryParse(parts[1].trim());
+    if (lat == null || lng == null) return null;
+    return (lat, lng);
   }
 
   Future<void> submitUserReport(JellyfishReportType type) async {
@@ -119,6 +256,17 @@ class JellyfishService {
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': user.uid,
     });
+  }
+
+  DateTime? _readDate(Object? value) {
+    if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+    return null;
+  }
+
+  String _formatDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
   }
 
   double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
