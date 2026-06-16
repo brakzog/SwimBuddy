@@ -5,6 +5,7 @@ class PrefsService {
   static const _keyName = 'user_name';
   static const _keyUnits = 'units_miles';
   static const _keyJellyRadius = 'jellyfish_radius_km';
+  static const _keyJellyfishTimeWindowHours = 'jellyfish_time_window_hours';
   static const _keyNotifs = 'notifications_enabled';
 
   final SharedPreferences _prefs;
@@ -22,6 +23,12 @@ class PrefsService {
   double get jellyfishRadiusKm => _prefs.getDouble(_keyJellyRadius) ?? 10.0;
   Future<void> setJellyfishRadiusKm(double v) =>
       _prefs.setDouble(_keyJellyRadius, v);
+
+  // Fenêtre temporelle méduses (défaut 72 h)
+  int get jellyfishTimeWindowHours =>
+      _prefs.getInt(_keyJellyfishTimeWindowHours) ?? 72;
+  Future<void> setJellyfishTimeWindowHours(int v) =>
+      _prefs.setInt(_keyJellyfishTimeWindowHours, v);
 
   // Notifications
   bool get notificationsEnabled => _prefs.getBool(_keyNotifs) ?? true;
@@ -43,6 +50,7 @@ class PrefsNotifier extends Notifier<Map<String, dynamic>> {
       'name': prefs.userName,
       'useMiles': prefs.useMiles,
       'jellyfishRadius': prefs.jellyfishRadiusKm,
+      'jellyfishTimeWindowHours': prefs.jellyfishTimeWindowHours,
       'notifs': prefs.notificationsEnabled,
     };
   }
@@ -60,6 +68,11 @@ class PrefsNotifier extends Notifier<Map<String, dynamic>> {
   Future<void> setJellyfishRadius(double v) async {
     await ref.read(prefsServiceProvider).setJellyfishRadiusKm(v);
     state = {...state, 'jellyfishRadius': v};
+  }
+
+  Future<void> setJellyfishTimeWindowHours(int v) async {
+    await ref.read(prefsServiceProvider).setJellyfishTimeWindowHours(v);
+    state = {...state, 'jellyfishTimeWindowHours': v};
   }
 
   Future<void> setNotifs(bool v) async {

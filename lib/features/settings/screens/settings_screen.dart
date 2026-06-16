@@ -34,6 +34,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final notifier = ref.read(prefsProvider.notifier);
     final useMiles = prefs['useMiles'] as bool;
     final jellyfishRadius = prefs['jellyfishRadius'] as double;
+    final jellyfishTimeWindowHours =
+        prefs['jellyfishTimeWindowHours'] as int? ?? 72;
     final notifsEnabled = prefs['notifs'] as bool;
 
     return Scaffold(
@@ -191,6 +193,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             fontSize: 10, color: SwimColors.textMuted)),
                   ],
                 ),
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: SwimColors.border),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.schedule_outlined,
+                        color: SwimColors.textSecondary, size: 18),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Période des signalements',
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  color: SwimColors.textPrimary)),
+                          Text('Ne garder que les signalements récents',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: SwimColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    DropdownButton<int>(
+                      value: jellyfishTimeWindowHours,
+                      dropdownColor: SwimColors.surface,
+                      underline: const SizedBox.shrink(),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: SwimColors.textPrimary,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 24, child: Text('24 h')),
+                        DropdownMenuItem(value: 48, child: Text('48 h')),
+                        DropdownMenuItem(value: 72, child: Text('72 h')),
+                        DropdownMenuItem(value: 168, child: Text('7 j')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          notifier.setJellyfishTimeWindowHours(v);
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -219,7 +266,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _SettingRow(
                   icon: Icons.nature_outlined,
                   title: 'Signalements méduses',
-                  subtitle: 'iNaturalist API',
+                  subtitle: 'ACRI Méduse + communauté SwimBuddy',
                   trailing: const SizedBox.shrink(),
                 ),
               ],

@@ -327,13 +327,18 @@ class _JellyfishCard extends ConsumerWidget {
     final title = isAlert
         ? '${data.alertReportCount} signalement(s) alerte'
         : 'Zone OK';
+    final periodLabel = _periodLabel(data.timeWindowHours);
+    final latestReport = data.reports.isEmpty
+        ? null
+        : data.reports.reduce((a, b) =>
+            a.reportedAt.isAfter(b.reportedAt) ? a : b);
     final subtitle = isAlert && data.nearestKm != null
-        ? 'Plus proche à ${data.nearestKm!.toStringAsFixed(1)} km · il y a ${data.hoursAgo}h · ${data.externalReportCount} source(s) externe(s)'
+        ? '${data.alertReportCount} alerte(s) sur $periodLabel · plus proche ${data.nearestKm!.toStringAsFixed(1)} km · ${_ageLabel(data.hoursAgo)}'
         : data.safeReportCount > 0
-            ? '${data.safeReportCount} signalement(s) “pas de méduse” · ${data.externalReportCount} observation(s) ACRI/iNaturalist'
+            ? '${data.safeReportCount} signalement(s) OK sur $periodLabel · dernier ${_ageLabel(_hoursAgo(latestReport))}'
             : data.externalReportCount > 0
-                ? '${data.externalReportCount} observation(s) ACRI/iNaturalist récente(s) dans votre rayon'
-                : 'Aucun signalement récent dans votre rayon';
+                ? '${data.externalReportCount} observation(s) ACRI/iNaturalist sur $periodLabel'
+                : 'Aucun signalement sur $periodLabel dans votre rayon';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -388,6 +393,10 @@ class _JellyfishCard extends ConsumerWidget {
               ),
             ],
           ),
+          if (data.reports.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...data.reports.take(3).map(_ReportSummary.new),
+          ],
           const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => _showReportDialog(context, ref),
@@ -397,6 +406,25 @@ class _JellyfishCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _periodLabel(int hours) {
+    if (hours < 24) return '${hours}h';
+    final days = hours ~/ 24;
+    return days == 1 ? '24h' : '$days jours';
+  }
+
+  int? _hoursAgo(JellyfishReport? report) {
+    if (report == null) return null;
+    return DateTime.now().difference(report.reportedAt).inHours;
+  }
+
+  String _ageLabel(int? hours) {
+    if (hours == null) return 'date inconnue';
+    if (hours <= 0) return 'à l’instant';
+    if (hours < 24) return 'il y a ${hours}h';
+    final days = hours ~/ 24;
+    return days == 1 ? 'hier' : 'il y a $days jours';
   }
 
   Future<void> _showReportDialog(BuildContext context, WidgetRef ref) async {
@@ -464,6 +492,54 @@ class _JellyfishCard extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+class _ReportSummary extends StatelessWidget {
+  final JellyfishReport report;
+  const _ReportSummary(this.report);
+
+  @override
+  Widget build(BuildContext context) {
+    final isAlert = report.type.isAlert;
+    final hours = DateTime.now().difference(report.reportedAt).inHours;
+    final age = hours < 24
+        ? 'il y a ${hours <= 0 ? 0 : hours}h'
+        : 'il y a ${hours ~/ 24}j';
+    final distance = report.distanceKm == null
+        ? 'distance inconnue'
+        : '${report.distanceKm!.toStringAsFixed(1)} km';
+    final source = switch (report.source) {
+      JellyfishReportSource.acri => 'ACRI',
+      JellyfishReportSource.inaturalist => 'iNaturalist',
+      JellyfishReportSource.user => 'SwimBuddy',
+      JellyfishReportSource.meduseo => 'Meduseo',
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(
+            isAlert ? Icons.water_outlined : Icons.check_circle_outline,
+            color: isAlert ? SwimColors.warning : SwimColors.wave,
+            size: 14,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${report.type.label} · $distance · $age · $source',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10,
+                color: SwimColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

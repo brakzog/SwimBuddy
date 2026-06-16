@@ -17,6 +17,7 @@ class JellyfishData {
   final int externalReportCount;
   final double? nearestKm;
   final int? hoursAgo;
+  final int timeWindowHours;
   final bool hasAlert;
   final String? error;
   final List<JellyfishReport> reports;
@@ -29,6 +30,7 @@ class JellyfishData {
     this.externalReportCount = 0,
     this.nearestKm,
     this.hoursAgo,
+    this.timeWindowHours = 72,
     this.hasAlert = false,
     this.error,
     this.reports = const [],
@@ -63,8 +65,9 @@ class JellyfishService {
 
     try {
       final radiusKm = _prefsService.jellyfishRadiusKm;
+      final timeWindowHours = _prefsService.jellyfishTimeWindowHours;
       final now = DateTime.now();
-      final since = now.subtract(const Duration(hours: 48));
+      final since = now.subtract(Duration(hours: timeWindowHours));
 
       final communityReports = await _fetchCommunityReports(
         lat: position.latitude,
@@ -79,6 +82,7 @@ class JellyfishService {
         lng: position.longitude,
         radiusKm: radiusKm,
         now: now,
+        since: since,
       );
 
       // iNaturalist reste un fallback légal/gratuit, mais ACRI est bien plus
@@ -110,6 +114,7 @@ class JellyfishService {
         hoursAgo: nearestAlert == null
             ? null
             : now.difference(nearestAlert.reportedAt).inHours,
+        timeWindowHours: timeWindowHours,
         hasAlert: alertReports.isNotEmpty,
         reports: nearbyReports,
       );
@@ -154,9 +159,9 @@ class JellyfishService {
     required double lng,
     required double radiusKm,
     required DateTime now,
+    required DateTime since,
   }) async {
     try {
-      final since = now.toUtc().subtract(const Duration(hours: 72));
       final response = await _dio.get<Map<String, dynamic>>(
         '$_acriBaseUrl/campaigns/meduse/observations',
         queryParameters: {
@@ -248,7 +253,9 @@ class JellyfishService {
     required DateTime now,
   }) async {
     try {
-      final since = now.subtract(const Duration(days: 7));
+      final since = now.subtract(
+        Duration(hours: _prefsService.jellyfishTimeWindowHours),
+      );
       final response = await _dio.get<Map<String, dynamic>>(
         '$_inaturalistBaseUrl/observations',
         queryParameters: {
