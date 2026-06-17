@@ -22,7 +22,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(authServiceProvider).signInWithApple();
     } catch (e) {
-      setState(() => _error = 'Connexion Apple échouée. Réessayez.');
+      setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loadingApple = false);
     }
