@@ -7,6 +7,42 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:450499877642:android:d6e388eac0a4ef1cc538f3",
+        "android_client_info": {
+          "package_name": "com.jro.swimtracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "450499877642-6lvg9s5du6l1kjk9a75u4qkd2u01oljb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxz2JK_Y3MOgA4jRVC89OQnda93MBve0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "450499877642-6lvg9s5du6l1kjk9a75u4qkd2u01oljb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "450499877642-b4bsectf9rnv9fmr9d8ahb67umorpn7v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.swim.buddy"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:450499877642:android:ed6e0015666e8fc8c538f3",
         "android_client_info": {
           "package_name": "com.swim.buddy"

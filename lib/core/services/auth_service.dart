@@ -30,6 +30,15 @@ class AuthService {
   }
 }
 
+Future<UserCredential> signInWithApple() async {
+  final appleProvider = AppleAuthProvider();
+  appleProvider.addScope('email');
+  appleProvider.addScope('name');
+
+  return _auth.signInWithProvider(appleProvider);
+}
+
+/*
   Future<UserCredential?> signInWithApple() async {
     final rawNonce = _generateNonce();
     final nonce = _sha256ofString(rawNonce);
@@ -45,7 +54,7 @@ class AuthService {
       rawNonce: rawNonce,
     );
     return _auth.signInWithCredential(oauthCredential);
-  }
+  }*/
 
   Future<void> signOut() async {
     await GoogleSignIn.instance.disconnect();

@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDxz2JK_Y3MOgA4jRVC89OQnda93MBve0I',
-    appId: '1:450499877642:android:ed6e0015666e8fc8c538f3',
+    appId: '1:450499877642:android:d6e388eac0a4ef1cc538f3',
     messagingSenderId: '450499877642',
     projectId: 'swimbuddy-app',
     storageBucket: 'swimbuddy-app.firebasestorage.app',
@@ -59,10 +59,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCnCWMZeO5jLxZ44wVp69_qO6cTdmzlVvs',
-    appId: '1:450499877642:ios:f667f3e409f1eb13c538f3',
+    appId: '1:450499877642:ios:57bdac362002700dc538f3',
     messagingSenderId: '450499877642',
     projectId: 'swimbuddy-app',
     storageBucket: 'swimbuddy-app.firebasestorage.app',
-    iosBundleId: 'com.swim.buddy',
+    androidClientId: '450499877642-2s9kbfl32bhsc5vcaefskp4n3bnr9448.apps.googleusercontent.com',
+    iosClientId: '450499877642-n7lb6icqa83q3scen009uv60v4srrnrr.apps.googleusercontent.com',
+    iosBundleId: 'com.jro.swimtracker',
   );
+
 }
