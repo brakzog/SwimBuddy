@@ -17,28 +17,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   
 
-  Future<void> _signInApple() async {
-    setState(() { _loadingApple = true; _error = null; });
-    try {
-      await ref.read(authServiceProvider).signInWithApple();
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loadingApple = false);
-    }
-  }
-
   Future<void> _signInGoogle() async {
   setState(() { _loadingGoogle = true; _error = null; });
   try {
-    final result = await ref.read(authServiceProvider).signInWithGoogle();
-    if (result == null) {
-      setState(() => _error = 'Retour null — vérifie REVERSED_CLIENT_ID');
-    }
+    await ref.read(authServiceProvider).signInWithGoogle();
   } catch (e) {
-    setState(() => _error = e.toString()); // affiche l'erreur COMPLÈTE
+    setState(() => _error = 'Connexion Google échouée. Réessayez.');
   } finally {
     if (mounted) setState(() => _loadingGoogle = false);
+  }
+}
+
+Future<void> _signInApple() async {
+  setState(() { _loadingApple = true; _error = null; });
+  try {
+    await ref.read(authServiceProvider).signInWithApple();
+  } catch (e) {
+    setState(() => _error = 'Connexion Apple échouée. Réessayez.');
+  } finally {
+    if (mounted) setState(() => _loadingApple = false);
   }
 }
 

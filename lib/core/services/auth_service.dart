@@ -38,23 +38,6 @@ Future<UserCredential> signInWithApple() async {
   return _auth.signInWithProvider(appleProvider);
 }
 
-/*
-  Future<UserCredential?> signInWithApple() async {
-    final rawNonce = _generateNonce();
-    final nonce = _sha256ofString(rawNonce);
-    final appleCredential = await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-      nonce: nonce,
-    );
-    final oauthCredential = OAuthProvider('apple.com').credential(
-      idToken: appleCredential.identityToken,
-      rawNonce: rawNonce,
-    );
-    return _auth.signInWithCredential(oauthCredential);
-  }*/
 
   Future<void> signOut() async {
     await GoogleSignIn.instance.disconnect();
