@@ -17,12 +17,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   
 
-  Future<void> _signInGoogle() async {
+Future<void> _signInGoogle() async {
   setState(() { _loadingGoogle = true; _error = null; });
   try {
     final result = await ref.read(authServiceProvider).signInWithGoogle();
-    if (result != null) {
-      ref.invalidate(authStateProvider); // force le refresh
+    if (result != null && mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
     }
   } catch (e) {
     setState(() => _error = 'Connexion Google échouée. Réessayez.');
@@ -35,8 +38,12 @@ Future<void> _signInApple() async {
   setState(() { _loadingApple = true; _error = null; });
   try {
     final result = await ref.read(authServiceProvider).signInWithApple();
-    if (result != null) {
-      ref.invalidate(authStateProvider); // force le refresh
+    if (result != null && context.mounted) {
+      // Navigation directe au lieu d'attendre le stream
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
     }
   } catch (e) {
     setState(() => _error = 'Connexion Apple échouée. Réessayez.');
@@ -44,7 +51,6 @@ Future<void> _signInApple() async {
     if (mounted) setState(() => _loadingApple = false);
   }
 }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
