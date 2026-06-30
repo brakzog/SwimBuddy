@@ -42,7 +42,21 @@ class FirestoreService {
   // Supprime une session
   Future<void> deleteSession(String sessionId) =>
       _sessions.doc(sessionId).delete();
+
+
+  // Supprime toutes les sessions de l'utilisateur (avant suppression du compte)
+  Future<void> deleteAllUserData() async {
+    final snap = await _sessions.get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
 }
+
+
+
 
 // Providers
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {

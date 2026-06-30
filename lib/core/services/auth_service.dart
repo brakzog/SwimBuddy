@@ -73,6 +73,21 @@ Future<UserCredential> signInWithApple() async {
     final bytes = utf8.encode(input);
     return sha256.convert(bytes).toString();
   }
+
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    // Réauthentification nécessaire pour Apple/Google avant suppression
+    try {
+      await user.delete();
+    } catch (e) {
+      rethrow; // l'UI gérera la réauthentification si nécessaire
+    }
+  }
+}
+
+
 }
 
 final authServiceProvider = Provider<AuthService>((ref) {

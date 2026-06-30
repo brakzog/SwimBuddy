@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:swimtracker/core/services/firestore_service.dart';
 import 'package:swimtracker/features/auth/screens/login_screen.dart';
 import '../../../core/services/prefs_service.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -299,9 +300,86 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
 
           const SizedBox(height: 32),
+
+
+          // ── Suppression de compte ──────────────────────────────────────
+          _Card(
+            child: _SettingRow(
+              icon: Icons.delete_outline,
+              title: 'Supprimer mon compte',
+              subtitle: 'Action irréversible',
+              trailing: TextButton(
+                onPressed: () => _confirmDeleteAccount(context, ref),
+                child: const Text('Supprimer',
+                    style: TextStyle(color: SwimColors.danger, fontSize: 13)),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
         ],
       ),
     );
+  }
+
+
+
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: SwimColors.surface,
+        title: const Text('Supprimer le compte ?',
+            style: TextStyle(color: SwimColors.textPrimary)),
+        content: const Text(
+          'Toutes vos sessions et données seront définitivement supprimées. Cette action est irréversible.',
+          style: TextStyle(color: SwimColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler',
+                style: TextStyle(color: SwimColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer définitivement',
+                style: TextStyle(color: SwimColors.danger)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await ref.read(firestoreServiceProvider).deleteAllUserData();
+      await ref.read(authServiceProvider).deleteAccount();
+
+      if (context.mounted) {
+        Navigator.pop(context); // ferme le loader
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la suppression: $e'),
+            backgroundColor: SwimColors.danger,
+          ),
+        );
+      }
+    }
   }
 }
 
