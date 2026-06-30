@@ -88,8 +88,6 @@ Future<UserCredential> signInWithApple() async {
 }
 
 
-}
-
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(FirebaseAuth.instance);
 });
