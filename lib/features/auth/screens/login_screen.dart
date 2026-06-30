@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:swimtracker/shared/widgets/app_shell.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../shared/theme/app_theme.dart';
 
