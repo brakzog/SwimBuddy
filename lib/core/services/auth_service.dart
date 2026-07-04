@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math';
 
 class AuthService {
@@ -14,29 +15,31 @@ class AuthService {
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   Future<UserCredential?> signInWithGoogle() async {
-  try {
-    // Force l'initialisation avec le CLIENT_ID iOS
-    await GoogleSignIn.instance.initialize(
-      clientId: '450499877642-b4bsectf9rnv9fmr9d8ahb67umorpn7v.apps.googleusercontent.com',
-    );
-    final googleUser = await GoogleSignIn.instance.authenticate();
-    final googleAuth = googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      idToken: googleAuth.idToken,
-    );
-    return _auth.signInWithCredential(credential);
-  } catch (e) {
-    rethrow;
+    try {
+      await GoogleSignIn.instance.initialize(
+        clientId: Platform.isIOS
+            ? '450499877642-n7lb6icqa83q3scen009uv60v4srrnrr.apps.googleusercontent.com'
+            : null,
+        serverClientId: '450499877642-6lvg9s5du6l1kjk9a75u4qkd2u01oljb.apps.googleusercontent.com',
+      );
+      final googleUser = await GoogleSignIn.instance.authenticate();
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+      return _auth.signInWithCredential(credential);
+    } catch (e) {
+      rethrow;
+    }
   }
-}
 
-Future<UserCredential> signInWithApple() async {
-  final appleProvider = AppleAuthProvider();
-  appleProvider.addScope('email');
-  appleProvider.addScope('name');
+  Future<UserCredential> signInWithApple() async {
+    final appleProvider = AppleAuthProvider();
+    appleProvider.addScope('email');
+    appleProvider.addScope('name');
 
-  return _auth.signInWithProvider(appleProvider);
-}
+    return _auth.signInWithProvider(appleProvider);
+  }
 
 
   Future<void> signOut() async {
@@ -60,12 +63,25 @@ Future<UserCredential> signInWithApple() async {
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) return;
+    final uid = user.uid;
+    final userDocRef = FirebaseFirestore.instance.collection('users').doc(uid);
 
-    // Réauthentification nécessaire pour Apple/Google avant suppression
     try {
+      // Supprime tous les documents de la sous-collection sessions
+      final sessionsSnapshot = await userDocRef.collection('sessions').get();
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in sessionsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      // Puis le document utilisateur lui-même
+      await userDocRef.delete();
+
+      // Enfin le compte Auth
       await user.delete();
     } catch (e) {
-      rethrow; // l'UI gérera la réauthentification si nécessaire
+      rethrow;
     }
   }
 }

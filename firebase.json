@@ -1,1 +1,33 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"swimbuddy-app","configurations":{"android":"1:450499877642:android:d6e388eac0a4ef1cc538f3","ios":"1:450499877642:ios:57bdac362002700dc538f3"}}},"android":{"default":{"projectId":"swimbuddy-app","appId":"1:450499877642:android:d6e388eac0a4ef1cc538f3","fileOutput":"android/app/google-services.json"}}}},"firestore":{"rules":"firestore.rules"}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "swimbuddy-app",
+          "configurations": {
+            "android": "1:450499877642:android:d6e388eac0a4ef1cc538f3",
+            "ios": "1:450499877642:ios:57bdac362002700dc538f3"
+          }
+        }
+      },
+      "android": {
+        "default": {
+          "projectId": "swimbuddy-app",
+          "appId": "1:450499877642:android:d6e388eac0a4ef1cc538f3",
+          "fileOutput": "android/app/google-services.json"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
