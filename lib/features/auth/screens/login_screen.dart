@@ -16,42 +16,43 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loadingApple = false;
   String? _error;
 
-  
 
-Future<void> _signInGoogle() async {
-  setState(() { _loadingGoogle = true; _error = null; });
-  try {
-    final result = await ref.read(authServiceProvider).signInWithGoogle();
-    if (result != null && mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AppShell()),
-        (route) => false,
-      );
-    }
-  } catch (e) {
-    setState(() => _error = 'Connexion Google échouée. Réessayez.');
-  } finally {
-    if (mounted) setState(() => _loadingGoogle = false);
-  }
-}
 
-Future<void> _signInApple() async {
-  setState(() { _loadingApple = true; _error = null; });
-  try {
-    final result = await ref.read(authServiceProvider).signInWithApple();
-    if (result != null && context.mounted) {
-      // Navigation directe au lieu d'attendre le stream
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AppShell()),
-        (route) => false,
-      );
+  Future<void> _signInGoogle() async {
+    setState(() { _loadingGoogle = true; _error = null; });
+    try {
+      final result = await ref.read(authServiceProvider).signInWithGoogle();
+      if (result != null && mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AppShell()),
+              (route) => false,
+        );
+      }
+    } catch (e, st) {
+      debugPrint('Google sign-in error: $e\n$st');
+      setState(() => _error = 'Connexion Google échouée. Réessayez.');
+    } finally {
+      if (mounted) setState(() => _loadingGoogle = false);
     }
-  } catch (e) {
-    setState(() => _error = 'Connexion Apple échouée. Réessayez.');
-  } finally {
-    if (mounted) setState(() => _loadingApple = false);
   }
-}
+
+  Future<void> _signInApple() async {
+    setState(() { _loadingApple = true; _error = null; });
+    try {
+      final result = await ref.read(authServiceProvider).signInWithApple();
+      if (result != null && context.mounted) {
+        // Navigation directe au lieu d'attendre le stream
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AppShell()),
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      setState(() => _error = 'Connexion Apple échouée. Réessayez.');
+    } finally {
+      if (mounted) setState(() => _loadingApple = false);
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -200,23 +201,23 @@ class _SignInButton extends StatelessWidget {
         ),
         child: loading
             ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: foregroundColor),
-              )
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: foregroundColor),
+        )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  icon,
-                  const SizedBox(width: 10),
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: foregroundColor)),
-                ],
-              ),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            icon,
+            const SizedBox(width: 10),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: foregroundColor)),
+          ],
+        ),
       ),
     );
   }
