@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "450499877642-i67pr1783ruqmb13tou3a1ofitc8lain.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jro.swimtracker",
+            "certificate_hash": "10c3f3dd0c9ba9cf3b1d0cb1fef4957ebfe37543"
+          }
+        },
+        {
           "client_id": "450499877642-sptsvqo0n641k2dhn7jpm50dnds62s7l.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
