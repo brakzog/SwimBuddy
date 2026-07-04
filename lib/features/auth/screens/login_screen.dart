@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:swimtracker/shared/widgets/app_shell.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../shared/theme/app_theme.dart';
 
@@ -17,10 +18,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   
 
-  Future<void> _signInGoogle() async {
+Future<void> _signInGoogle() async {
   setState(() { _loadingGoogle = true; _error = null; });
   try {
-    await ref.read(authServiceProvider).signInWithGoogle();
+    final result = await ref.read(authServiceProvider).signInWithGoogle();
+    if (result != null && mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
+    }
   } catch (e) {
     setState(() => _error = 'Connexion Google échouée. Réessayez.');
   } finally {
@@ -31,14 +38,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 Future<void> _signInApple() async {
   setState(() { _loadingApple = true; _error = null; });
   try {
-    await ref.read(authServiceProvider).signInWithApple();
+    final result = await ref.read(authServiceProvider).signInWithApple();
+    if (result != null && context.mounted) {
+      // Navigation directe au lieu d'attendre le stream
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
+    }
   } catch (e) {
     setState(() => _error = 'Connexion Apple échouée. Réessayez.');
   } finally {
     if (mounted) setState(() => _loadingApple = false);
   }
 }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
