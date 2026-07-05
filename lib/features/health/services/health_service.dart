@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:health/health.dart';
 import '../../../core/models/swim_session.dart';
@@ -17,9 +18,9 @@ class HealthResult {
 
   bool get hasData =>
       heartRateAvg != null ||
-      heartRateMax != null ||
-      calories != null ||
-      distanceMeters != null;
+          heartRateMax != null ||
+          calories != null ||
+          distanceMeters != null;
 }
 
 class HealthService {
@@ -39,7 +40,8 @@ class HealthService {
     try {
       return await _health.requestAuthorization(_types,
           permissions: permissions);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('Health requestPermissions error: $e\n$st');
       return false;
     }
   }
@@ -94,7 +96,7 @@ class HealthService {
           : null;
 
       final heartRateMax =
-          heartPoints.isNotEmpty ? heartPoints.reduce((a, b) => a > b ? a : b) : null;
+      heartPoints.isNotEmpty ? heartPoints.reduce((a, b) => a > b ? a : b) : null;
 
       final totalCalories = caloriesPoints.isNotEmpty
           ? caloriesPoints.reduce((a, b) => a + b)
