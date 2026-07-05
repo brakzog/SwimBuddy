@@ -61,6 +61,33 @@ class AuthService {
     return sha256.convert(bytes).toString();
   }
 
+  Future<void> _reauthenticate(User user) async {
+    final providerId =
+    user.providerData.isNotEmpty ? user.providerData.first.providerId : null;
+
+    if (providerId == 'google.com') {
+      await GoogleSignIn.instance.initialize(
+        clientId: Platform.isIOS
+            ? '450499877642-n7lb6icqa83q3scen009uv60v4srrnrr.apps.googleusercontent.com'
+            : null,
+        serverClientId:
+        '450499877642-6lvg9s5du6l1kjk9a75u4qkd2u01oljb.apps.googleusercontent.com',
+      );
+      final googleUser = await GoogleSignIn.instance.authenticate();
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(idToken: googleAuth.idToken);
+      await user.reauthenticateWithCredential(credential);
+    } else if (providerId == 'apple.com') {
+      final appleProvider = AppleAuthProvider();
+      appleProvider.addScope('email');
+      appleProvider.addScope('name');
+      await user.reauthenticateWithProvider(appleProvider);
+    } else {
+      throw StateError(
+          'Impossible de réauthentifier: fournisseur inconnu ($providerId)');
+    }
+  }
+
   Future<void> deleteAccount() async {
     final user = _auth.currentUser;
     if (user == null) return;
@@ -79,8 +106,17 @@ class AuthService {
       // Puis le document utilisateur lui-même
       await userDocRef.delete();
 
-      // Enfin le compte Auth
-      await user.delete();
+      // Enfin le compte Auth, avec réauthentification si nécessaire
+      try {
+        await user.delete();
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'requires-recent-login') {
+          await _reauthenticate(user);
+          await user.delete();
+        } else {
+          rethrow;
+        }
+      }
     } catch (e) {
       rethrow;
     }
