@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:swimtracker/core/services/firestore_service.dart';
 import 'package:swimtracker/features/auth/screens/login_screen.dart';
 import '../../../core/services/prefs_service.dart';
@@ -15,12 +16,21 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _nameController;
+  String _appVersion = '';
 
   @override
   void initState() {
     super.initState();
     final prefs = ref.read(prefsProvider);
     _nameController = TextEditingController(text: prefs['name'] as String);
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() => _appVersion = info.version);
+    }
   }
 
   @override
@@ -253,7 +263,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _SettingRow(
                   icon: Icons.waves_outlined,
                   title: 'SwimTracker',
-                  subtitle: 'Version 1.0.0',
+                  subtitle: _appVersion.isEmpty ? '...' : 'Version $_appVersion',
                   trailing: const SizedBox.shrink(),
                 ),
                 const Divider(height: 1, color: SwimColors.border),
@@ -285,14 +295,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: 'Retour à l\'écran de connexion',
               trailing: TextButton(
                 onPressed: () async {
-  await ref.read(authServiceProvider).signOut();
-  if (context.mounted) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
-          },
+                  await ref.read(authServiceProvider).signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          (route) => false,
+                    );
+                  }
+                },
                 child: const Text('Déconnexion',
                     style: TextStyle(color: SwimColors.danger, fontSize: 13)),
               ),
@@ -366,7 +376,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         Navigator.pop(context); // ferme le loader
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
+              (route) => false,
         );
       }
     } catch (e) {
