@@ -134,6 +134,24 @@ class _GreetingHeader extends ConsumerWidget {
     return 'Bonsoir$suffix';
   }
 
+  String? _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return null;
+    if (parts.length == 1) {
+      // Un seul mot : 2 premières lettres si possible
+      final word = parts.first;
+      return word.length >= 2
+          ? word.substring(0, 2).toUpperCase()
+          : word.toUpperCase();
+    }
+    // Plusieurs mots : initiale du premier + du dernier
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final name = ref.watch(prefsProvider)['name'] as String? ?? '';
@@ -164,11 +182,14 @@ class _GreetingHeader extends ConsumerWidget {
             borderRadius: BorderRadius.circular(18),
           ),
           alignment: Alignment.center,
-          child: const Text('JR',
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: SwimColors.textSecondary)),
+          child: _initials(name) != null
+              ? Text(_initials(name)!,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: SwimColors.textSecondary))
+              : const Icon(Icons.person_outline,
+                  size: 18, color: SwimColors.textSecondary),
         ),
       ],
     );
