@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "450499877642",
+    "project_id": "swimbuddy-app",
+    "storage_bucket": "swimbuddy-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:450499877642:android:d6e388eac0a4ef1cc538f3",
+        "android_client_info": {
+          "package_name": "com.jro.swimtracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "450499877642-i67pr1783ruqmb13tou3a1ofitc8lain.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jro.swimtracker",
+            "certificate_hash": "10c3f3dd0c9ba9cf3b1d0cb1fef4957ebfe37543"
+          }
+        },
+        {
+          "client_id": "450499877642-sptsvqo0n641k2dhn7jpm50dnds62s7l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jro.swimtracker",
+            "certificate_hash": "740bec92042827d45611fc1e9ad1f23ee734daa4"
+          }
+        },
+        {
+          "client_id": "450499877642-6lvg9s5du6l1kjk9a75u4qkd2u01oljb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDxz2JK_Y3MOgA4jRVC89OQnda93MBve0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "450499877642-6lvg9s5du6l1kjk9a75u4qkd2u01oljb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "450499877642-b4bsectf9rnv9fmr9d8ahb67umorpn7v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.swim.buddy"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

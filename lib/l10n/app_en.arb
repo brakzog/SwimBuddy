@@ -1,0 +1,99 @@
+{
+  "@@locale": "en",
+
+  "appName": "SwimTracker",
+  "@appName": { "description": "Application name" },
+
+  "startSession": "Start session",
+  "@startSession": { "description": "Button to start a swim session" },
+
+  "stopSession": "Stop session",
+  "@stopSession": { "description": "Button to stop a swim session" },
+
+  "sessionSummary": "Session summary",
+  "@sessionSummary": { "description": "Title of the session summary screen" },
+
+  "saveSession": "Save session",
+  "@saveSession": { "description": "Button to save the session to Firestore" },
+
+  "discardSession": "Discard",
+  "@discardSession": { "description": "Button to discard the session" },
+
+  "distance": "Distance",
+  "@distance": { "description": "Label for distance metric" },
+
+  "duration": "Duration",
+  "@duration": { "description": "Label for duration metric" },
+
+  "heartRateAvg": "Avg heart rate",
+  "@heartRateAvg": { "description": "Label for average heart rate" },
+
+  "heartRateMax": "Max heart rate",
+  "@heartRateMax": { "description": "Label for max heart rate" },
+
+  "calories": "Calories",
+  "@calories": { "description": "Label for calories metric" },
+
+  "waterTemp": "Water temp.",
+  "@waterTemp": { "description": "Label for water temperature" },
+
+  "airTemp": "Air temp.",
+  "@airTemp": { "description": "Label for air temperature" },
+
+  "jellyfishAlert": "Jellyfish spotted nearby",
+  "@jellyfishAlert": { "description": "Alert message when jellyfish are reported near user location" },
+
+  "jellyfishAlertSub": "{count} report(s) within {km} km — {hoursAgo}h ago",
+  "@jellyfishAlertSub": {
+    "description": "Jellyfish alert subtitle with details",
+    "placeholders": {
+      "count": { "type": "int" },
+      "km": { "type": "double" },
+      "hoursAgo": { "type": "int" }
+    }
+  },
+
+  "noJellyfishAlert": "No jellyfish reported in your area",
+  "@noJellyfishAlert": { "description": "Message when no jellyfish are reported" },
+
+  "history": "History",
+  "@history": { "description": "History tab label" },
+
+  "home": "Home",
+  "@home": { "description": "Home tab label" },
+
+  "settings": "Settings",
+  "@settings": { "description": "Settings tab label" },
+
+  "noSessionsYet": "No sessions yet.\nGo swim!",
+  "@noSessionsYet": { "description": "Empty state for history screen" },
+
+  "healthPermissionRequired": "Health access required",
+  "@healthPermissionRequired": { "description": "Title when health permissions are missing" },
+
+  "healthPermissionBody": "SwimTracker needs access to your health data to read heart rate, distance and calories from your watch.",
+  "@healthPermissionBody": { "description": "Body text for health permission request" },
+
+  "grantPermission": "Grant access",
+  "@grantPermission": { "description": "Button to grant health permission" },
+
+  "signIn": "Sign in",
+  "@signIn": { "description": "Sign in button" },
+
+  "signOut": "Sign out",
+  "@signOut": { "description": "Sign out button" },
+
+  "errorGeneric": "Something went wrong. Please try again.",
+  "@errorGeneric": { "description": "Generic error message" },
+
+  "loading": "Loading…",
+  "@loading": { "description": "Generic loading message" },
+
+  "sessionOf": "Session of {date}",
+  "@sessionOf": {
+    "description": "Session list item title",
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  }
+}
