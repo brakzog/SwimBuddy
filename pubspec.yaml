@@ -1,7 +1,7 @@
 name: swimtracker
 description: Track your open water swimming sessions.
 publish_to: none
-version: 1.0.1+60
+version: 1.0.2+60
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
