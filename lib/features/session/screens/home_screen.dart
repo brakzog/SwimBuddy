@@ -152,7 +152,29 @@ class _IdleView extends ConsumerWidget {
     if (!hasPerms) {
       await healthService.requestPermissions();
     }
-    ref.read(sessionProvider.notifier).start();
+    final ocean = ref.read(oceanProvider).value;
+    final jellyfish = ref.read(jellyfishProvider).value;
+    final hasSevereAlert = jellyfish?.reports.any(
+          (report) =>
+              report.type == JellyfishReportType.many ||
+              report.type == JellyfishReportType.sting,
+        ) ??
+        false;
+    final zoneStatus = hasSevereAlert
+        ? SwimZoneStatus.discouraged
+        : (jellyfish?.hasAlert ?? false)
+            ? SwimZoneStatus.vigilance
+            : SwimZoneStatus.favorable;
+
+    await ref.read(sessionProvider.notifier).start(
+          waterTempCelsius: ocean?.seaTempCelsius,
+          airTempCelsius: ocean?.airTempCelsius,
+          waveHeightMeters: ocean?.waveHeight,
+          locationLabel: ocean?.locationLabel,
+          latitude: ocean?.latitude,
+          longitude: ocean?.longitude,
+          zoneStatus: zoneStatus,
+        );
   }
 }
 
@@ -1139,20 +1161,26 @@ class _StatChip extends StatelessWidget {
 
 // ─── Vue SESSION EN COURS ─────────────────────────────────────────────────────
 
-class _RunningView extends ConsumerWidget {
+class _RunningView extends ConsumerStatefulWidget {
   final SessionState session;
   const _RunningView({required this.session});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final oceanAsync = ref.watch(oceanProvider);
+  ConsumerState<_RunningView> createState() => _RunningViewState();
+}
 
+class _RunningViewState extends ConsumerState<_RunningView> {
+  bool _isStopping = false;
+
+  SessionState get session => widget.session;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Chrono
           Expanded(
             child: Center(
               child: Column(
@@ -1168,29 +1196,27 @@ class _RunningView extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
+                      DecoratedBox(
+                        decoration: BoxDecoration(
                           color: SwimColors.wave,
                           shape: BoxShape.circle,
                         ),
+                        child: SizedBox(width: 7, height: 7),
                       ),
-                      const SizedBox(width: 6),
-                      const Text('Session en cours',
-                          style: TextStyle(
-                              color: SwimColors.wave, fontSize: 14)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Session en cours',
+                        style: TextStyle(color: SwimColors.wave, fontSize: 14),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
           ),
-
-          // Infos live
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1200,24 +1226,23 @@ class _RunningView extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                _LiveStat(
+                const _LiveStat(
                   icon: Icons.watch_outlined,
-                  label: 'Montre',
-                  value: 'Synchro',
+                  label: 'Source',
+                  value: 'SwimTracker',
                   color: SwimColors.wave,
                 ),
                 _divider(),
                 _LiveStat(
                   icon: Icons.water_outlined,
-                  label: 'Mer',
-                  value: oceanAsync.maybeWhen(
-                    data: (o) => o.formattedSeaTemp,
-                    orElse: () => '—',
-                  ),
+                  label: 'Mer au départ',
+                  value: session.waterTempCelsius == null
+                      ? '—'
+                      : '${session.waterTempCelsius!.toStringAsFixed(1)}°C',
                   color: SwimColors.waterBlue,
                 ),
                 _divider(),
-                _LiveStat(
+                const _LiveStat(
                   icon: Icons.favorite_outline,
                   label: 'FC',
                   value: '—',
@@ -1227,15 +1252,23 @@ class _RunningView extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 14),
-
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: SwimColors.danger,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => _stopSession(context, ref),
-            icon: const Icon(Icons.stop_outlined),
-            label: const Text('Terminer la session'),
+            onPressed: _isStopping ? null : () => _stopSession(context),
+            icon: _isStopping
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.stop_outlined),
+            label: Text(_isStopping ? 'Finalisation…' : 'Terminer la session'),
           ),
         ],
       ),
@@ -1249,44 +1282,51 @@ class _RunningView extends ConsumerWidget {
         margin: const EdgeInsets.symmetric(horizontal: 12),
       );
 
-  Future<void> _stopSession(BuildContext context, WidgetRef ref) async {
-    ref.read(sessionProvider.notifier).stop();
-    final sessionState = ref.read(sessionProvider);
-    final healthService = ref.read(healthServiceProvider);
-    final oceanData = ref.read(oceanProvider).value;
-    final jellyfishData = ref.read(jellyfishProvider).value;
+  Future<void> _stopSession(BuildContext context) async {
+    if (_isStopping) return;
+    setState(() => _isStopping = true);
+    try {
+      ref.read(sessionProvider.notifier).stop();
+      final sessionState = ref.read(sessionProvider);
+      final healthData = await ref.read(healthServiceProvider).fetchSessionData(
+            from: sessionState.startedAt!,
+            to: sessionState.endedAt!,
+          );
 
-    final healthData = await healthService.fetchSessionData(
-      from: sessionState.startedAt!,
-      to: sessionState.endedAt!,
-    );
-
-    final swimSession = SwimSession(
-      startedAt: sessionState.startedAt!,
-      endedAt: sessionState.endedAt!,
-      durationSeconds: sessionState.elapsed.inSeconds,
-      distanceMeters: healthData.distanceMeters ?? 0,
-      heartRateAvg: healthData.heartRateAvg,
-      heartRateMax: healthData.heartRateMax,
-      calories: healthData.calories,
-      waterTempCelsius:
-          healthData.waterTemperatureCelsius ?? oceanData?.seaTempCelsius,
-      waterTemperatureSource: healthData.waterTemperatureCelsius != null
-          ? SwimTemperatureSource.watch
-          : oceanData?.seaTempCelsius != null
-              ? SwimTemperatureSource.oceanApi
-              : null,
-      airTempCelsius: oceanData?.airTempCelsius,
-      locationLabel: oceanData?.locationLabel,
-      jellyfishAlert: jellyfishData?.hasAlert ?? false,
-    );
-
-    if (context.mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SessionSummaryScreen(session: swimSession),
-        ),
+      final swimSession = SwimSession(
+        startedAt: sessionState.startedAt!,
+        endedAt: sessionState.endedAt!,
+        durationSeconds: sessionState.elapsed.inSeconds,
+        distanceMeters: healthData.distanceMeters ?? 0,
+        heartRateAvg: healthData.heartRateAvg,
+        heartRateMax: healthData.heartRateMax,
+        calories: healthData.calories,
+        waterTempCelsius: healthData.waterTemperatureCelsius ??
+            sessionState.waterTempCelsius,
+        waterTemperatureSource: healthData.waterTemperatureCelsius != null
+            ? SwimTemperatureSource.watch
+            : sessionState.waterTempCelsius != null
+                ? SwimTemperatureSource.oceanApi
+                : null,
+        airTempCelsius: sessionState.airTempCelsius,
+        waveHeightMeters: sessionState.waveHeightMeters,
+        locationLabel: sessionState.locationLabel,
+        latitude: sessionState.latitude,
+        longitude: sessionState.longitude,
+        conditionsCapturedAt: sessionState.conditionsCapturedAt,
+        zoneStatus: sessionState.zoneStatus,
+        source: SwimSessionSource.swimTracker,
       );
+
+      if (context.mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SessionSummaryScreen(session: swimSession),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isStopping = false);
     }
   }
 }

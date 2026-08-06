@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +8,7 @@ class PrefsService {
   static const _keyJellyRadius = 'jellyfish_radius_km';
   static const _keyJellyfishTimeWindowHours = 'jellyfish_time_window_hours';
   static const _keyNotifs = 'notifications_enabled';
+  static const _keyActiveSession = 'active_swim_session';
 
   final SharedPreferences _prefs;
   PrefsService(this._prefs);
@@ -29,6 +31,22 @@ class PrefsService {
       _prefs.getInt(_keyJellyfishTimeWindowHours) ?? 72;
   Future<void> setJellyfishTimeWindowHours(int v) =>
       _prefs.setInt(_keyJellyfishTimeWindowHours, v);
+
+
+  Map<String, dynamic>? get activeSession {
+    final raw = _prefs.getString(_keyActiveSession);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveActiveSession(Map<String, dynamic> value) =>
+      _prefs.setString(_keyActiveSession, jsonEncode(value));
+
+  Future<void> clearActiveSession() => _prefs.remove(_keyActiveSession);
 
   // Notifications
   bool get notificationsEnabled => _prefs.getBool(_keyNotifs) ?? true;

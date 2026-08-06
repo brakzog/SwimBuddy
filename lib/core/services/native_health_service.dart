@@ -27,11 +27,10 @@ class NativeHealthService {
           heartRateAvg: (map['heartRateAvg'] as num?)?.toDouble(),
           heartRateMax: (map['heartRateMax'] as num?)?.toDouble(),
           calories: (map['calories'] as num?)?.toDouble(),
-          locationLabel: 'Importé depuis Apple Watch',
+          source: SwimSessionSource.appleHealth,
         );
       }).toList();
-    } on PlatformException catch (e) {
-      print('NativeHealthService error: ${e.message}');
+    } on PlatformException {
       return [];
     }
   }

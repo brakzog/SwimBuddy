@@ -150,18 +150,7 @@ class HealthService {
         return summary.workoutType.toUpperCase().contains('SWIM');
       }).toList();
 
-      // Debug — retourne une session fantôme si rien trouvé
-      if (swimmingWorkouts.isEmpty) {
-        return [
-          SwimSession(
-            startedAt: DateTime.now(),
-            endedAt: DateTime.now(),
-            durationSeconds: 0,
-            distanceMeters: 0,
-            locationLabel: 'DEBUG: ${rawWorkouts.length} workouts bruts, 0 natation trouvée',
-          ),
-        ];
-      }
+      if (swimmingWorkouts.isEmpty) return const [];
 
       final List<SwimSession> sessions = [];
       for (final workout in swimmingWorkouts) {
@@ -221,20 +210,12 @@ class HealthService {
           waterTemperatureSource: waterTemperaturePoints.isNotEmpty
               ? SwimTemperatureSource.watch
               : null,
-          locationLabel: 'Importé depuis Apple Watch',
+          source: SwimSessionSource.appleHealth,
         ));
       }
       return sessions;
-    } catch (e) {
-      return [
-        SwimSession(
-          startedAt: DateTime.now(),
-          endedAt: DateTime.now(),
-          durationSeconds: 0,
-          distanceMeters: 0,
-          locationLabel: 'DEBUG ERROR: $e',
-        ),
-      ];
+    } catch (_) {
+      return const [];
     }
   }
 }

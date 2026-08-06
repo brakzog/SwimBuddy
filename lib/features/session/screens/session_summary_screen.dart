@@ -165,6 +165,24 @@ class _SessionHeader extends StatelessWidget {
             ],
           ),
         ],
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            const Icon(
+              Icons.sync_outlined,
+              size: 14,
+              color: SwimColors.textMuted,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              session.source.label,
+              style: const TextStyle(
+                color: SwimColors.textMuted,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -268,15 +286,22 @@ class _ConditionsCard extends StatelessWidget {
           ),
           const Divider(color: SwimColors.border, height: 24),
           _ConditionRow(
+            icon: Icons.waves_outlined,
+            label: 'Hauteur des vagues',
+            value: session.waveHeightMeters != null
+                ? '${session.waveHeightMeters!.toStringAsFixed(1)} m'
+                : 'Non disponible',
+            color: SwimColors.wave,
+          ),
+          const Divider(color: SwimColors.border, height: 24),
+          _ConditionRow(
             icon: session.jellyfishAlert
                 ? Icons.warning_amber_outlined
                 : Icons.check_circle_outline,
             label: 'État de la zone',
-            value: session.jellyfishAlert
-                ? 'Vigilance méduses'
-                : 'Conditions favorables',
+            value: session.zoneStatus.label,
             subtitle: session.jellyfishAlert
-                ? 'Des méduses étaient signalées au moment de la séance.'
+                ? 'Des méduses étaient signalées au début de la séance.'
                 : 'Aucune alerte méduse enregistrée au début de la séance.',
             color: statusColor,
           ),
