@@ -67,9 +67,17 @@ class _IdleView extends ConsumerWidget {
       orElse: () => null,
     );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      child: Column(
+    return RefreshIndicator.adaptive(
+      onRefresh: () async {
+        await Future.wait([
+          ref.read(oceanProvider.notifier).refresh(),
+          ref.read(jellyfishProvider.notifier).refresh(),
+        ]);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Greeting
@@ -123,6 +131,7 @@ class _IdleView extends ConsumerWidget {
             label: const Text('Démarrer la session'),
           ),
         ],
+        ),
       ),
     );
   }
