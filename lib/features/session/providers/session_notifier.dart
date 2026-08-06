@@ -57,15 +57,26 @@ class SessionNotifier extends Notifier<SessionState> {
     });
   }
 
-  void stop() {
+  Future<void> stop() async {
     if (!state.isRunning) return;
+
     _timer?.cancel();
+
+    final startedAt = state.startedAt;
+    if (startedAt == null) {
+      await ref.read(prefsServiceProvider).clearActiveSession();
+      state = const SessionState();
+      return;
+    }
+
     final endedAt = DateTime.now();
     state = state.copyWith(
       status: SessionStatus.finished,
       endedAt: endedAt,
-      elapsed: endedAt.difference(state.startedAt!),
+      elapsed: endedAt.difference(startedAt),
     );
+
+    await ref.read(prefsServiceProvider).clearActiveSession();
   }
 
   Future<void> reset() async {

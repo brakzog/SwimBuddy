@@ -1286,7 +1286,7 @@ class _RunningViewState extends ConsumerState<_RunningView> {
     if (_isStopping) return;
     setState(() => _isStopping = true);
     try {
-      ref.read(sessionProvider.notifier).stop();
+      await ref.read(sessionProvider.notifier).stop();
       final sessionState = ref.read(sessionProvider);
       final healthData = await ref.read(healthServiceProvider).fetchSessionData(
             from: sessionState.startedAt!,
