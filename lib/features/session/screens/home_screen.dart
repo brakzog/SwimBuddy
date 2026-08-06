@@ -82,6 +82,22 @@ class _IdleView extends ConsumerWidget {
             error: (_, __) => const _WeatherPillsError(),
             data: (ocean) => _WeatherPills(ocean: ocean),
           ),
+          if (oceanAsync.hasValue || jellyfishAsync.hasValue) ...[
+            const SizedBox(height: 7),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                _formatLastUpdated(
+                  oceanAsync.value?.fetchedAt,
+                  jellyfishAsync.value?.fetchedAt,
+                ),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: SwimColors.textMuted,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
 
           // Card méduses
@@ -109,6 +125,16 @@ class _IdleView extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _formatLastUpdated(DateTime? oceanAt, DateTime? jellyfishAt) {
+    final values = [oceanAt, jellyfishAt].whereType<DateTime>().toList();
+    if (values.isEmpty) return 'Actualisation en cours…';
+    final latest = values.reduce((a, b) => a.isAfter(b) ? a : b);
+    final diff = DateTime.now().difference(latest);
+    if (diff.inSeconds < 45) return 'Actualisé à l’instant';
+    if (diff.inMinutes < 60) return 'Actualisé il y a ${diff.inMinutes} min';
+    return 'Actualisé à ${latest.hour.toString().padLeft(2, '0')}:${latest.minute.toString().padLeft(2, '0')}';
   }
 
   Future<void> _startSession(BuildContext context, WidgetRef ref) async {
@@ -188,6 +214,7 @@ class _WeatherPills extends StatelessWidget {
       children: [
         Expanded(
           child: _Pill(
+            icon: Icons.water_outlined,
             label: 'Mer',
             value: ocean.formattedSeaTemp,
             valueColor: SwimColors.waterBlue,
@@ -196,6 +223,7 @@ class _WeatherPills extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _Pill(
+            icon: Icons.thermostat_outlined,
             label: 'Air',
             value: ocean.formattedAirTemp,
             valueColor: SwimColors.textPrimary,
@@ -205,6 +233,7 @@ class _WeatherPills extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: _Pill(
+              icon: Icons.waves_outlined,
               label: 'Vagues',
               value: '${ocean.waveHeight!.toStringAsFixed(1)}m',
               valueColor: SwimColors.wave,
@@ -217,11 +246,16 @@ class _WeatherPills extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
   final Color valueColor;
-  const _Pill(
-      {required this.label, required this.value, required this.valueColor});
+  const _Pill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -240,9 +274,20 @@ class _Pill extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   color: valueColor)),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: SwimColors.textMuted)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 12, color: SwimColors.textMuted),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: SwimColors.textMuted,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -868,29 +913,92 @@ class _ReportTile extends StatelessWidget {
   }
 }
 
-class _JellyfishCardLoading extends StatelessWidget {
+class _JellyfishCardLoading extends StatefulWidget {
   const _JellyfishCardLoading();
+
+  @override
+  State<_JellyfishCardLoading> createState() => _JellyfishCardLoadingState();
+}
+
+class _JellyfishCardLoadingState extends State<_JellyfishCardLoading>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final opacity = 0.35 + (_controller.value * 0.35);
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: SwimColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SwimColors.border, width: 0.5),
+          ),
+          child: Opacity(
+            opacity: opacity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _SkeletonBox(width: 52, height: 52, radius: 14),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          _SkeletonBox(width: 150, height: 18),
+                          SizedBox(height: 9),
+                          _SkeletonBox(width: double.infinity, height: 12),
+                          SizedBox(height: 6),
+                          _SkeletonBox(width: 190, height: 12),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const _SkeletonBox(width: double.infinity, height: 48, radius: 24),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SkeletonBox extends StatelessWidget {
+  final double width;
+  final double height;
+  final double radius;
+
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    this.radius = 6,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: width,
+      height: height,
       decoration: BoxDecoration(
-        color: SwimColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SwimColors.border, width: 0.5),
-      ),
-      child: const Row(
-        children: [
-          SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                  strokeWidth: 1.5, color: SwimColors.textMuted)),
-          SizedBox(width: 12),
-          Text('Vérification méduses en cours…',
-              style:
-                  TextStyle(fontSize: 12, color: SwimColors.textSecondary)),
-        ],
+        color: SwimColors.surfaceLight,
+        borderRadius: BorderRadius.circular(radius),
       ),
     );
   }

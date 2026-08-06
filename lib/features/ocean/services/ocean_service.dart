@@ -9,6 +9,7 @@ class OceanData {
   final double? waveHeight;
   final String? locationLabel;
   final String? error;
+  final DateTime? fetchedAt;
 
   const OceanData({
     this.seaTempCelsius,
@@ -16,6 +17,7 @@ class OceanData {
     this.waveHeight,
     this.locationLabel,
     this.error,
+    this.fetchedAt,
   });
 
   bool get hasData => seaTempCelsius != null;
@@ -91,6 +93,7 @@ class OceanService {
         airTempCelsius: airTemp,
         waveHeight: waveHeight,
         locationLabel: locationLabel,
+        fetchedAt: DateTime.now(),
       );
     } on DioException catch (e) {
       return OceanData(error: 'Erreur réseau: ${e.message}');

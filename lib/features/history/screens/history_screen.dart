@@ -59,6 +59,7 @@ class _AggStats {
   final double? maxDistance;
   final double? maxHeartRate;
   final double? maxCalories;
+  final Duration? maxDuration;
 
   const _AggStats({
     required this.totalKm,
@@ -68,6 +69,7 @@ class _AggStats {
     this.maxDistance,
     this.maxHeartRate,
     this.maxCalories,
+    this.maxDuration,
   });
 
   factory _AggStats.from(List<SwimSession> sessions) {
@@ -81,6 +83,9 @@ class _AggStats {
     final totalCal = sessions.fold(0.0, (s, e) => s + (e.calories ?? 0));
     final totalSec = sessions.fold(0, (s, e) => s + e.durationSeconds);
     final maxDist = sessions.map((s) => s.distanceMeters).reduce((a, b) => a > b ? a : b);
+    final maxDurationSeconds = sessions
+        .map((s) => s.durationSeconds)
+        .reduce((a, b) => a > b ? a : b);
     final hrSessions = sessions.where((s) => s.heartRateMax != null).toList();
     final maxHr = hrSessions.isNotEmpty
         ? hrSessions.map((s) => s.heartRateMax!).reduce((a, b) => a > b ? a : b)
@@ -98,6 +103,7 @@ class _AggStats {
       maxDistance: maxDist / 1000,
       maxHeartRate: maxHr,
       maxCalories: maxCal,
+      maxDuration: Duration(seconds: maxDurationSeconds),
     );
   }
 
@@ -107,6 +113,15 @@ class _AggStats {
     if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
     return '${m}m';
   }
+  String get formattedMaxDuration {
+    final duration = maxDuration;
+    if (duration == null) return '—';
+    final h = duration.inHours;
+    final m = duration.inMinutes.remainder(60);
+    if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
+    return '${m}m';
+  }
+
 }
 
 // ─── Écran principal ──────────────────────────────────────────────────────────
@@ -493,33 +508,35 @@ class _RecordsRow extends StatelessWidget {
         const Text('Records personnels',
             style: TextStyle(fontSize: 12, color: SwimColors.textSecondary)),
         const SizedBox(height: 8),
-        Row(
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          childAspectRatio: 2.5,
           children: [
-            Expanded(
-              child: _RecordCard(
-                value: stats.maxDistance != null
-                    ? '${stats.maxDistance!.toStringAsFixed(1)} km'
-                    : '—',
-                label: 'Distance max',
-              ),
+            _RecordCard(
+              value: stats.maxDistance != null
+                  ? '${stats.maxDistance!.toStringAsFixed(1)} km'
+                  : '—',
+              label: 'Distance max',
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _RecordCard(
-                value: stats.maxHeartRate != null
-                    ? '${stats.maxHeartRate!.round()} bpm'
-                    : '—',
-                label: 'FC max',
-              ),
+            _RecordCard(
+              value: stats.formattedMaxDuration,
+              label: 'Durée max',
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _RecordCard(
-                value: stats.maxCalories != null
-                    ? '${stats.maxCalories!.round()} kcal'
-                    : '—',
-                label: 'Calories max',
-              ),
+            _RecordCard(
+              value: stats.maxHeartRate != null
+                  ? '${stats.maxHeartRate!.round()} bpm'
+                  : '—',
+              label: 'FC max',
+            ),
+            _RecordCard(
+              value: stats.maxCalories != null
+                  ? '${stats.maxCalories!.round()} kcal'
+                  : '—',
+              label: 'Calories max',
             ),
           ],
         ),

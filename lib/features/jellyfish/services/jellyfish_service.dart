@@ -21,6 +21,7 @@ class JellyfishData {
   final bool hasAlert;
   final String? error;
   final List<JellyfishReport> reports;
+  final DateTime? fetchedAt;
 
   const JellyfishData({
     this.reportCount = 0,
@@ -34,6 +35,7 @@ class JellyfishData {
     this.hasAlert = false,
     this.error,
     this.reports = const [],
+    this.fetchedAt,
   });
 }
 
@@ -117,6 +119,7 @@ class JellyfishService {
         timeWindowHours: timeWindowHours,
         hasAlert: alertReports.isNotEmpty,
         reports: nearbyReports,
+        fetchedAt: DateTime.now(),
       );
     } on FirebaseException catch (e) {
       return JellyfishData(error: 'Erreur Firestore: ${e.message}');
