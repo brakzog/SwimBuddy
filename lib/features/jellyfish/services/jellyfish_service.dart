@@ -353,8 +353,7 @@ class JellyfishService {
     final user = _auth.currentUser;
     if (user == null) throw StateError('Utilisateur non connecté');
 
-    final position = await _locationService.getCurrentPosition();
-    if (position == null) throw StateError('Position GPS indisponible');
+    final position = await _locationService.getCurrentPositionOrThrow();
 
     final now = DateTime.now();
     await _firestore.collection(_collection).add({

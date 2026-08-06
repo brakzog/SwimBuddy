@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/swim_session.dart';
 import '../../../core/services/firestore_service.dart';
+import '../../../core/services/location_service.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../health/services/health_service.dart';
 import '../../ocean/services/ocean_service.dart';
@@ -134,24 +135,6 @@ class _GreetingHeader extends ConsumerWidget {
     return 'Bonsoir$suffix';
   }
 
-  String? _initials(String name) {
-    final parts = name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((p) => p.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return null;
-    if (parts.length == 1) {
-      // Un seul mot : 2 premières lettres si possible
-      final word = parts.first;
-      return word.length >= 2
-          ? word.substring(0, 2).toUpperCase()
-          : word.toUpperCase();
-    }
-    // Plusieurs mots : initiale du premier + du dernier
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final name = ref.watch(prefsProvider)['name'] as String? ?? '';
@@ -182,14 +165,11 @@ class _GreetingHeader extends ConsumerWidget {
             borderRadius: BorderRadius.circular(18),
           ),
           alignment: Alignment.center,
-          child: _initials(name) != null
-              ? Text(_initials(name)!,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: SwimColors.textSecondary))
-              : const Icon(Icons.person_outline,
-                  size: 18, color: SwimColors.textSecondary),
+          child: const Text('JR',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: SwimColors.textSecondary)),
         ),
       ],
     );
@@ -328,127 +308,206 @@ class _WeatherPillsError extends StatelessWidget {
 
 // ─── Card méduses ─────────────────────────────────────────────────────────────
 
-class _JellyfishCard extends ConsumerWidget {
+enum _ZoneStatus { favorable, vigilance, discouraged }
+
+class _JellyfishCard extends ConsumerStatefulWidget {
   final JellyfishData data;
   const _JellyfishCard({required this.data});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isAlert = data.hasAlert;
-    final bgColor =
-        isAlert ? const Color(0xFF1A0808) : const Color(0xFF041A0E);
-    final borderColor = isAlert
-        ? SwimColors.danger.withOpacity(0.4)
-        : SwimColors.wave.withOpacity(0.3);
-    final iconColor = isAlert ? SwimColors.danger : SwimColors.wave;
-    final titleColor =
-        isAlert ? const Color(0xFFF09595) : const Color(0xFF9FE1CB);
-    final icon =
-        isAlert ? Icons.warning_amber_outlined : Icons.check_circle_outline;
-    final title = isAlert
-        ? '${data.alertReportCount} signalement(s) alerte'
-        : 'Zone OK';
-    final periodLabel = _periodLabel(data.timeWindowHours);
-    final latestReport = data.reports.isEmpty
-        ? null
-        : data.reports.reduce((a, b) =>
-            a.reportedAt.isAfter(b.reportedAt) ? a : b);
-    final subtitle = isAlert && data.nearestKm != null
-        ? '${data.alertReportCount} alerte(s) sur $periodLabel · plus proche ${data.nearestKm!.toStringAsFixed(1)} km · ${_ageLabel(data.hoursAgo)}'
-        : data.safeReportCount > 0
-            ? '${data.safeReportCount} signalement(s) OK sur $periodLabel · dernier ${_ageLabel(_hoursAgo(latestReport))}'
-            : data.externalReportCount > 0
-                ? '${data.externalReportCount} observation(s) ACRI/iNaturalist sur $periodLabel'
-                : 'Aucun signalement sur $periodLabel dans votre rayon';
+  ConsumerState<_JellyfishCard> createState() => _JellyfishCardState();
+}
+
+class _JellyfishCardState extends ConsumerState<_JellyfishCard> {
+  bool _showDetails = false;
+
+  JellyfishData get data => widget.data;
+
+  _ZoneStatus get _status {
+    final alertTypes = data.reports
+        .where((report) => report.type.isAlert)
+        .map((report) => report.type);
+
+    if (alertTypes.any(
+      (type) =>
+          type == JellyfishReportType.many ||
+          type == JellyfishReportType.sting,
+    )) {
+      return _ZoneStatus.discouraged;
+    }
+    if (data.hasAlert) return _ZoneStatus.vigilance;
+    return _ZoneStatus.favorable;
+  }
+
+  JellyfishReport? get _primaryReport {
+    final alerts = data.reports.where((report) => report.type.isAlert).toList()
+      ..sort((a, b) {
+        final severity = _severity(b.type).compareTo(_severity(a.type));
+        if (severity != 0) return severity;
+        return a.reportedAt.compareTo(b.reportedAt) * -1;
+      });
+    return alerts.isEmpty ? null : alerts.first;
+  }
+
+  int _severity(JellyfishReportType type) => switch (type) {
+        JellyfishReportType.sting => 3,
+        JellyfishReportType.many => 2,
+        JellyfishReportType.few => 1,
+        JellyfishReportType.none => 0,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _status;
+    final primary = _primaryReport;
+    final colors = _ZoneStatusColors.from(status);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: 0.5),
+        color: colors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  color: colors.accent.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: iconColor, size: 17),
+                child: Icon(colors.icon, color: colors.accent, size: 24),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: titleColor)),
-                    const SizedBox(height: 2),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            fontSize: 11, color: SwimColors.textMuted)),
+                    Text(
+                      colors.title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: colors.titleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _decisionMessage(status, primary),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.35,
+                        color: SwimColors.textSecondary,
+                      ),
+                    ),
                   ],
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.15),
+                  color: colors.accent.withOpacity(0.14),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(isAlert ? 'Alerte' : 'OK',
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: iconColor)),
+                child: Text(
+                  colors.badge,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colors.accent,
+                  ),
+                ),
               ),
             ],
           ),
-          if (data.reports.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            ...data.reports.take(3).map(_ReportSummary.new),
+          if (primary != null) ...[
+            const SizedBox(height: 16),
+            _DecisionFacts(report: primary),
+          ] else ...[
+            const SizedBox(height: 14),
+            Text(
+              _favorableDetails(),
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: SwimColors.textMuted,
+              ),
+            ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () => _showReportDialog(context, ref),
-            icon: const Icon(Icons.add_location_alt_outlined, size: 17),
-            label: const Text('Signaler la zone'),
+            onPressed: () => _showReportDialog(context),
+            icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+            label: const Text('Signaler cette zone'),
           ),
+          if (data.reports.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => setState(() => _showDetails = !_showDetails),
+              icon: Icon(
+                _showDetails
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+              ),
+              label: Text(
+                _showDetails
+                    ? 'Masquer les observations'
+                    : 'Voir les observations (${data.reports.length})',
+              ),
+            ),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 180),
+              crossFadeState: _showDetails
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: const SizedBox.shrink(),
+              secondChild: Column(
+                children: [
+                  const Divider(color: SwimColors.border),
+                  const SizedBox(height: 4),
+                  ...data.reports.map(_ReportSummary.new),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
+  String _decisionMessage(_ZoneStatus status, JellyfishReport? report) {
+    return switch (status) {
+      _ZoneStatus.favorable =>
+        'Aucune observation inquiétante près de votre position.',
+      _ZoneStatus.vigilance =>
+        'Quelques méduses ont été observées à proximité.',
+      _ZoneStatus.discouraged => report?.type == JellyfishReportType.sting
+          ? 'Une piqûre a été signalée à proximité. La prudence est recommandée.'
+          : 'Une présence importante de méduses a été observée à proximité.',
+    };
+  }
+
+  String _favorableDetails() {
+    final period = _periodLabel(data.timeWindowHours);
+    if (data.safeReportCount > 0) {
+      return '${data.safeReportCount} observation(s) sans méduse sur $period.';
+    }
+    return 'Aucune observation de méduse sur $period dans votre rayon.';
+  }
+
   String _periodLabel(int hours) {
-    if (hours < 24) return '${hours}h';
+    if (hours < 24) return '${hours} h';
     final days = hours ~/ 24;
-    return days == 1 ? '24h' : '$days jours';
+    return days == 1 ? '24 h' : '$days jours';
   }
 
-  int? _hoursAgo(JellyfishReport? report) {
-    if (report == null) return null;
-    return DateTime.now().difference(report.reportedAt).inHours;
-  }
-
-  String _ageLabel(int? hours) {
-    if (hours == null) return 'date inconnue';
-    if (hours <= 0) return 'à l’instant';
-    if (hours < 24) return 'il y a ${hours}h';
-    final days = hours ~/ 24;
-    return days == 1 ? 'hier' : 'il y a $days jours';
-  }
-
-  Future<void> _showReportDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showReportDialog(BuildContext context) async {
     final type = await showModalBottomSheet<JellyfishReportType>(
       context: context,
       backgroundColor: SwimColors.surface,
@@ -506,13 +565,207 @@ class _JellyfishCard extends ConsumerWidget {
           const SnackBar(content: Text('Signalement envoyé, merci !')),
         );
       }
-    } catch (e) {
+    } on LocationFailure catch (failure) {
+      if (context.mounted) {
+        await _showLocationFailure(context, failure.type);
+      }
+    } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Signalement impossible: $e')),
+          const SnackBar(
+            content: Text(
+              'Impossible d’envoyer le signalement. Vérifiez votre connexion puis réessayez.',
+            ),
+          ),
         );
       }
     }
+  }
+
+  Future<void> _showLocationFailure(
+    BuildContext context,
+    LocationFailureType type,
+  ) async {
+    final locationService = ref.read(locationServiceProvider);
+
+    switch (type) {
+      case LocationFailureType.permissionDenied:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'La localisation est nécessaire pour associer le signalement à votre zone.',
+            ),
+          ),
+        );
+        return;
+      case LocationFailureType.positionUnavailable:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Position introuvable. Placez-vous à l’extérieur puis réessayez.',
+            ),
+          ),
+        );
+        return;
+      case LocationFailureType.permissionDeniedForever:
+        await _showLocationSettingsDialog(
+          context: context,
+          title: 'Autorisation de localisation requise',
+          message:
+              'Autorisez SwimTracker à accéder à votre position dans les réglages du téléphone pour signaler cette zone.',
+          actionLabel: 'Ouvrir les réglages',
+          onAction: locationService.openAppSettings,
+        );
+        return;
+      case LocationFailureType.serviceDisabled:
+        await _showLocationSettingsDialog(
+          context: context,
+          title: 'Localisation désactivée',
+          message:
+              'Activez la localisation de votre téléphone pour pouvoir signaler cette zone.',
+          actionLabel: 'Activer la localisation',
+          onAction: locationService.openLocationSettings,
+        );
+        return;
+    }
+  }
+
+  Future<void> _showLocationSettingsDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String actionLabel,
+    required Future<bool> Function() onAction,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await onAction();
+            },
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ZoneStatusColors {
+  final Color background;
+  final Color border;
+  final Color accent;
+  final Color titleColor;
+  final IconData icon;
+  final String title;
+  final String badge;
+
+  const _ZoneStatusColors({
+    required this.background,
+    required this.border,
+    required this.accent,
+    required this.titleColor,
+    required this.icon,
+    required this.title,
+    required this.badge,
+  });
+
+  factory _ZoneStatusColors.from(_ZoneStatus status) => switch (status) {
+        _ZoneStatus.favorable => _ZoneStatusColors(
+            background: const Color(0xFF041A0E),
+            border: SwimColors.wave.withOpacity(0.35),
+            accent: SwimColors.wave,
+            titleColor: const Color(0xFF9FE1CB),
+            icon: Icons.check_circle_outline,
+            title: 'Conditions favorables',
+            badge: 'OK',
+          ),
+        _ZoneStatus.vigilance => _ZoneStatusColors(
+            background: const Color(0xFF1A1305),
+            border: SwimColors.warning.withOpacity(0.45),
+            accent: SwimColors.warning,
+            titleColor: const Color(0xFFFFD58A),
+            icon: Icons.visibility_outlined,
+            title: 'Vigilance',
+            badge: 'PRUDENCE',
+          ),
+        _ZoneStatus.discouraged => _ZoneStatusColors(
+            background: const Color(0xFF1A0808),
+            border: SwimColors.danger.withOpacity(0.45),
+            accent: SwimColors.danger,
+            titleColor: const Color(0xFFF09595),
+            icon: Icons.warning_amber_outlined,
+            title: 'Baignade déconseillée',
+            badge: 'ALERTE',
+          ),
+      };
+}
+
+class _DecisionFacts extends StatelessWidget {
+  final JellyfishReport report;
+  const _DecisionFacts({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _FactChip(
+          icon: Icons.water_outlined,
+          label: report.type.label,
+        ),
+        _FactChip(
+          icon: Icons.location_on_outlined,
+          label: _formatDistance(report.distanceKm),
+        ),
+        _FactChip(
+          icon: Icons.schedule_outlined,
+          label: _formatAge(report.reportedAt),
+        ),
+      ],
+    );
+  }
+}
+
+class _FactChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _FactChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: SwimColors.border, width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: SwimColors.textSecondary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              color: SwimColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -523,45 +776,66 @@ class _ReportSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAlert = report.type.isAlert;
-    final hours = DateTime.now().difference(report.reportedAt).inHours;
-    final age = hours < 24
-        ? 'il y a ${hours <= 0 ? 0 : hours}h'
-        : 'il y a ${hours ~/ 24}j';
-    final distance = report.distanceKm == null
-        ? 'distance inconnue'
-        : '${report.distanceKm!.toStringAsFixed(1)} km';
     final source = switch (report.source) {
       JellyfishReportSource.acri => 'ACRI',
       JellyfishReportSource.inaturalist => 'iNaturalist',
-      JellyfishReportSource.user => 'SwimBuddy',
+      JellyfishReportSource.user => 'SwimTracker',
       JellyfishReportSource.meduseo => 'Meduseo',
     };
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             isAlert ? Icons.water_outlined : Icons.check_circle_outline,
             color: isAlert ? SwimColors.warning : SwimColors.wave,
-            size: 14,
+            size: 18,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              '${report.type.label} · $distance · $age · $source',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10,
-                color: SwimColors.textMuted,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  report.type.label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: SwimColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${_formatDistance(report.distanceKm)} · ${_formatAge(report.reportedAt)} · $source',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: SwimColors.textMuted,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
+
+String _formatDistance(double? distanceKm) {
+  if (distanceKm == null) return 'Distance inconnue';
+  if (distanceKm < 1) return '${(distanceKm * 1000).round()} m';
+  return '${distanceKm.toStringAsFixed(1).replaceAll('.', ',')} km';
+}
+
+String _formatAge(DateTime reportedAt) {
+  final difference = DateTime.now().difference(reportedAt);
+  if (difference.inMinutes < 5) return 'À l’instant';
+  if (difference.inHours < 1) return 'Il y a ${difference.inMinutes} min';
+  if (difference.inHours < 24) return 'Il y a ${difference.inHours} h';
+  if (difference.inHours < 48) return 'Hier';
+  return 'Il y a ${difference.inDays} jours';
 }
 
 class _ReportTile extends StatelessWidget {
