@@ -5,8 +5,8 @@ import '../../../core/models/swim_session.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../health/services/health_service.dart';
-import '../../../core/services/firestore_service.dart';
 
+import '../../session/screens/session_summary_screen.dart';
 // ─── Filtre période ───────────────────────────────────────────────────────────
 
 enum PeriodFilter { week, month, threeMonths, all }
@@ -577,98 +577,117 @@ class _SessionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: SwimColors.surface,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SwimColors.border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SessionSummaryScreen(
+              session: session,
+              readOnly: true,
+            ),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: SwimColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SwimColors.border, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _formatDate(session.startedAt),
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: SwimColors.textPrimary),
-              ),
-              if (session.locationLabel != null) ...[
-                const SizedBox(width: 6),
-                Text(
-                  '· ${session.locationLabel}',
-                  style: const TextStyle(
-                      fontSize: 12, color: SwimColors.textSecondary),
-                ),
-              ],
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: session.jellyfishAlert
-                      ? const Color(0xFF1A0808)
-                      : const Color(0xFF041A0E),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  session.jellyfishAlert ? 'Méduses' : 'Zone OK',
-                  style: TextStyle(
-                      fontSize: 10,
+              Row(
+                children: [
+                  Text(
+                    _formatDate(session.startedAt),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: SwimColors.textPrimary,
+                    ),
+                  ),
+                  if (session.locationLabel != null) ...[
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '· ${session.locationLabel}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: SwimColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ] else
+                    const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
                       color: session.jellyfishAlert
-                          ? SwimColors.danger
-                          : SwimColors.wave),
-                ),
+                          ? const Color(0xFF1A0808)
+                          : const Color(0xFF041A0E),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      session.jellyfishAlert ? 'Méduses' : 'Zone OK',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: session.jellyfishAlert
+                            ? SwimColors.danger
+                            : SwimColors.wave,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: SwimColors.textMuted,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _MiniStat(
+                    value: session.formattedDistance,
+                    label: 'distance',
+                    color: SwimColors.wave,
+                  ),
+                  const SizedBox(width: 16),
+                  _MiniStat(
+                    value: session.formattedDuration,
+                    label: 'durée',
+                    color: SwimColors.textPrimary,
+                  ),
+                  if (session.heartRateAvg != null) ...[
+                    const SizedBox(width: 16),
+                    _MiniStat(
+                      value: '${session.heartRateAvg!.round()} bpm',
+                      label: 'FC moy.',
+                      color: SwimColors.heartRate,
+                    ),
+                  ],
+                  if (session.calories != null) ...[
+                    const SizedBox(width: 16),
+                    _MiniStat(
+                      value: '${session.calories!.round()} kcal',
+                      label: 'cal.',
+                      color: SwimColors.calories,
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
-
-          // Stats
-          Row(
-            children: [
-              _MiniStat(
-                value: session.formattedDistance,
-                label: 'distance',
-                color: SwimColors.wave,
-              ),
-              const SizedBox(width: 16),
-              _MiniStat(
-                value: session.formattedDuration,
-                label: 'durée',
-                color: SwimColors.textPrimary,
-              ),
-              if (session.heartRateAvg != null) ...[
-                const SizedBox(width: 16),
-                _MiniStat(
-                  value: '${session.heartRateAvg!.round()} bpm',
-                  label: 'FC moy.',
-                  color: SwimColors.heartRate,
-                ),
-              ],
-              if (session.calories != null) ...[
-                const SizedBox(width: 16),
-                _MiniStat(
-                  value: '${session.calories!.round()} kcal',
-                  label: 'cal.',
-                  color: SwimColors.calories,
-                ),
-              ],
-              if (session.waterTempCelsius != null) ...[
-                const SizedBox(width: 16),
-                _MiniStat(
-                  value: '${session.waterTempCelsius!.toStringAsFixed(1)}°',
-                  label: 'mer',
-                  color: SwimColors.waterBlue,
-                ),
-              ],
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

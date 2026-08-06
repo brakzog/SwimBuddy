@@ -7,8 +7,13 @@ import '../providers/session_notifier.dart';
 
 class SessionSummaryScreen extends ConsumerStatefulWidget {
   final SwimSession session;
+  final bool readOnly;
 
-  const SessionSummaryScreen({super.key, required this.session});
+  const SessionSummaryScreen({
+    super.key,
+    required this.session,
+    this.readOnly = false,
+  });
 
   @override
   ConsumerState<SessionSummaryScreen> createState() =>
@@ -53,7 +58,9 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
     final s = widget.session;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Résumé de session')),
+      appBar: AppBar(
+        title: Text(widget.readOnly ? 'Détail de la session' : 'Résumé de session'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -161,31 +168,32 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
 
               const Spacer(),
 
-              // Boutons
-              ElevatedButton.icon(
-                onPressed: _saving || _saved ? null : _save,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : _saved
-                        ? const Icon(Icons.check)
-                        : const Icon(Icons.save_outlined),
-                label: Text(_saving
-                    ? 'Sauvegarde…'
-                    : _saved
-                        ? 'Sauvegardé !'
-                        : 'Sauvegarder'),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: _saving ? null : _discard,
-                child: const Text('Ignorer cette session',
-                    style: TextStyle(color: SwimColors.textSecondary)),
-              ),
+              if (!widget.readOnly) ...[
+                ElevatedButton.icon(
+                  onPressed: _saving || _saved ? null : _save,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : _saved
+                          ? const Icon(Icons.check)
+                          : const Icon(Icons.save_outlined),
+                  label: Text(_saving
+                      ? 'Sauvegarde…'
+                      : _saved
+                          ? 'Sauvegardé !'
+                          : 'Sauvegarder'),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: _saving ? null : _discard,
+                  child: const Text('Ignorer cette session',
+                      style: TextStyle(color: SwimColors.textSecondary)),
+                ),
+              ],
             ],
           ),
         ),

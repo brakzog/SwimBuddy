@@ -48,6 +48,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final jellyfishTimeWindowHours =
         prefs['jellyfishTimeWindowHours'] as int? ?? 72;
     final notifsEnabled = prefs['notifs'] as bool;
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final providerId = user?.providerData.isNotEmpty == true
+        ? user!.providerData.first.providerId
+        : null;
+    final providerLabel = switch (providerId) {
+      'apple.com' => 'Apple',
+      'google.com' => 'Google',
+      _ => 'Compte connecté',
+    };
 
     return Scaffold(
       appBar: AppBar(title: const Text('Paramètres')),
@@ -91,6 +100,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: const TextStyle(
                       fontSize: 11, color: SwimColors.textMuted),
                 ),
+                if (user != null) ...[
+                  const SizedBox(height: 14),
+                  const Divider(height: 1, color: SwimColors.border),
+                  const SizedBox(height: 12),
+                  _ProfileInfoRow(
+                    icon: providerId == 'apple.com'
+                        ? Icons.apple
+                        : Icons.account_circle_outlined,
+                    label: 'Connexion',
+                    value: providerLabel,
+                  ),
+                  if (user.email?.isNotEmpty == true) ...[
+                    const SizedBox(height: 10),
+                    _ProfileInfoRow(
+                      icon: Icons.mail_outline,
+                      label: 'E-mail',
+                      value: user.email!,
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -277,7 +306,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 _SettingRow(
                   icon: Icons.nature_outlined,
                   title: 'Signalements méduses',
-                  subtitle: 'ACRI Méduse + communauté SwimBuddy',
+                  subtitle: 'ACRI Méduse + communauté SwimTracker',
                   trailing: const SizedBox.shrink(),
                 ),
               ],
@@ -334,6 +363,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
 
 
+  String _deleteAccountErrorMessage(Object error) {
+    final message = error.toString();
+    if (message.contains('requires-recent-login')) {
+      return 'Votre session doit être renouvelée. Reconnectez-vous puis relancez la suppression.';
+    }
+    if (message.contains('network-request-failed')) {
+      return 'Connexion indisponible. Vérifiez votre réseau puis réessayez.';
+    }
+    return 'Impossible de supprimer le compte pour le moment. Réessayez plus tard.';
+  }
+
   Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -384,12 +424,51 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la suppression: $e'),
+            content: Text(_deleteAccountErrorMessage(e)),
             backgroundColor: SwimColors.danger,
           ),
         );
       }
     }
+  }
+}
+
+class _ProfileInfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ProfileInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: SwimColors.textSecondary, size: 18),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 11, color: SwimColors.textMuted)),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 13, color: SwimColors.textPrimary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
