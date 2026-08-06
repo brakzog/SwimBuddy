@@ -48,7 +48,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final jellyfishTimeWindowHours =
         prefs['jellyfishTimeWindowHours'] as int? ?? 72;
     final notifsEnabled = prefs['notifs'] as bool;
-    final user = ref.watch(authStateProvider).valueOrNull;
+    final user = ref.watch(authStateProvider).asData?.value;
     final providerId = user?.providerData.isNotEmpty == true
         ? user!.providerData.first.providerId
         : null;
