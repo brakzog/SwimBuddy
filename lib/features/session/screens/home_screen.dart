@@ -1260,7 +1260,13 @@ class _RunningView extends ConsumerWidget {
       heartRateAvg: healthData.heartRateAvg,
       heartRateMax: healthData.heartRateMax,
       calories: healthData.calories,
-      waterTempCelsius: oceanData?.seaTempCelsius,
+      waterTempCelsius:
+          healthData.waterTemperatureCelsius ?? oceanData?.seaTempCelsius,
+      waterTemperatureSource: healthData.waterTemperatureCelsius != null
+          ? SwimTemperatureSource.watch
+          : oceanData?.seaTempCelsius != null
+              ? SwimTemperatureSource.oceanApi
+              : null,
       airTempCelsius: oceanData?.airTempCelsius,
       locationLabel: oceanData?.locationLabel,
       jellyfishAlert: jellyfishData?.hasAlert ?? false,

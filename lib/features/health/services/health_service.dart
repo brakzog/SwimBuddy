@@ -8,19 +8,22 @@ class HealthResult {
   final double? heartRateMax;
   final double? calories;
   final double? distanceMeters;
+  final double? waterTemperatureCelsius;
 
   const HealthResult({
     this.heartRateAvg,
     this.heartRateMax,
     this.calories,
     this.distanceMeters,
+    this.waterTemperatureCelsius,
   });
 
   bool get hasData =>
       heartRateAvg != null ||
           heartRateMax != null ||
           calories != null ||
-          distanceMeters != null;
+          distanceMeters != null ||
+          waterTemperatureCelsius != null;
 }
 
 class HealthService {
@@ -32,6 +35,7 @@ class HealthService {
     HealthDataType.DISTANCE_DELTA,
     HealthDataType.DISTANCE_SWIMMING,
     HealthDataType.WORKOUT,
+    HealthDataType.WATER_TEMPERATURE,
   ];
 
   // Demande les permissions santé à l'utilisateur
@@ -90,6 +94,12 @@ class HealthService {
           .map((p) => (p.value as NumericHealthValue).numericValue.toDouble())
           .toList();
 
+      final waterTemperaturePoints = data
+          .where((p) => p.type == HealthDataType.WATER_TEMPERATURE)
+          .map((p) => (p.value as NumericHealthValue).numericValue.toDouble())
+          .where((value) => value > -5 && value < 50)
+          .toList();
+
       // Calcule les agrégats
       final heartRateAvg = heartPoints.isNotEmpty
           ? heartPoints.reduce((a, b) => a + b) / heartPoints.length
@@ -106,11 +116,17 @@ class HealthService {
           ? distancePoints.reduce((a, b) => a + b)
           : null;
 
+      final waterTemperature = waterTemperaturePoints.isNotEmpty
+          ? waterTemperaturePoints.reduce((a, b) => a + b) /
+              waterTemperaturePoints.length
+          : null;
+
       return HealthResult(
         heartRateAvg: heartRateAvg,
         heartRateMax: heartRateMax,
         calories: totalCalories,
         distanceMeters: totalDistance,
+        waterTemperatureCelsius: waterTemperature,
       );
     } catch (e) {
       return const HealthResult();
@@ -160,6 +176,7 @@ class HealthService {
             HealthDataType.HEART_RATE,
             HealthDataType.ACTIVE_ENERGY_BURNED,
             HealthDataType.DISTANCE_DELTA,
+            HealthDataType.WATER_TEMPERATURE,
           ],
         );
 
@@ -174,6 +191,11 @@ class HealthService {
         final distPoints = details
             .where((p) => p.type == HealthDataType.DISTANCE_DELTA)
             .map((p) => (p.value as NumericHealthValue).numericValue.toDouble())
+            .toList();
+        final waterTemperaturePoints = details
+            .where((p) => p.type == HealthDataType.WATER_TEMPERATURE)
+            .map((p) => (p.value as NumericHealthValue).numericValue.toDouble())
+            .where((value) => value > -5 && value < 50)
             .toList();
 
         sessions.add(SwimSession(
@@ -192,6 +214,13 @@ class HealthService {
           calories: calPoints.isNotEmpty
               ? calPoints.reduce((a, b) => a + b)
               : summary.totalEnergyBurned.toDouble(),
+          waterTempCelsius: waterTemperaturePoints.isNotEmpty
+              ? waterTemperaturePoints.reduce((a, b) => a + b) /
+                  waterTemperaturePoints.length
+              : null,
+          waterTemperatureSource: waterTemperaturePoints.isNotEmpty
+              ? SwimTemperatureSource.watch
+              : null,
           locationLabel: 'Importé depuis Apple Watch',
         ));
       }

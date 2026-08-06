@@ -136,6 +136,7 @@ class _SessionSummaryScreenState extends ConsumerState<SessionSummaryScreen> {
                       value: s.waterTempCelsius != null
                           ? '${s.waterTempCelsius!.toStringAsFixed(1)}°C'
                           : '—',
+                      subtitle: s.effectiveWaterTemperatureSource?.label,
                       color: SwimColors.waterBlue,
                     ),
                   ),
@@ -207,12 +208,14 @@ class _MetricCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final String? subtitle;
 
   const _MetricCard({
     required this.icon,
     required this.label,
     required this.value,
     required this.color,
+    this.subtitle,
   });
 
   @override
@@ -240,6 +243,18 @@ class _MetricCard extends StatelessWidget {
               style: const TextStyle(
                   fontSize: 11,
                   color: SwimColors.textMuted)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              subtitle!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 9,
+                color: SwimColors.textSecondary,
+              ),
+            ),
+          ],
         ],
       ),
     );

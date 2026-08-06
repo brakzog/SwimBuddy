@@ -1,5 +1,33 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum SwimTemperatureSource {
+  watch,
+  oceanApi,
+  manual,
+}
+
+extension SwimTemperatureSourceLabel on SwimTemperatureSource {
+  String get storageValue => name;
+
+  String get label {
+    switch (this) {
+      case SwimTemperatureSource.watch:
+        return 'Mesurée par la montre';
+      case SwimTemperatureSource.oceanApi:
+        return 'Conditions au début de la séance';
+      case SwimTemperatureSource.manual:
+        return 'Saisie manuellement';
+    }
+  }
+
+  static SwimTemperatureSource? fromStorage(String? value) {
+    for (final source in SwimTemperatureSource.values) {
+      if (source.name == value) return source;
+    }
+    return null;
+  }
+}
+
 class SwimSession {
   final String? id;
   final DateTime startedAt;
@@ -10,6 +38,7 @@ class SwimSession {
   final double? heartRateMax;
   final double? calories;
   final double? waterTempCelsius;
+  final SwimTemperatureSource? waterTemperatureSource;
   final double? airTempCelsius;
   final String? locationLabel;
   final bool jellyfishAlert;
@@ -24,6 +53,7 @@ class SwimSession {
     this.heartRateMax,
     this.calories,
     this.waterTempCelsius,
+    this.waterTemperatureSource,
     this.airTempCelsius,
     this.locationLabel,
     this.jellyfishAlert = false,
@@ -54,6 +84,8 @@ class SwimSession {
         if (heartRateMax != null) 'heart_rate_max': heartRateMax,
         if (calories != null) 'calories': calories,
         if (waterTempCelsius != null) 'water_temp_celsius': waterTempCelsius,
+        if (waterTemperatureSource != null)
+          'water_temperature_source': waterTemperatureSource!.storageValue,
         if (airTempCelsius != null) 'air_temp_celsius': airTempCelsius,
         if (locationLabel != null) 'location_label': locationLabel,
         'jellyfish_alert': jellyfishAlert,
@@ -75,10 +107,18 @@ class SwimSession {
       heartRateMax: (d['heart_rate_max'] as num?)?.toDouble(),
       calories: (d['calories'] as num?)?.toDouble(),
       waterTempCelsius: (d['water_temp_celsius'] as num?)?.toDouble(),
+      waterTemperatureSource: SwimTemperatureSourceLabel.fromStorage(
+        d['water_temperature_source'] as String?,
+      ),
       airTempCelsius: (d['air_temp_celsius'] as num?)?.toDouble(),
       locationLabel: d['location_label'] as String?,
       jellyfishAlert: d['jellyfish_alert'] as bool? ?? false,
     );
+  }
+
+  SwimTemperatureSource? get effectiveWaterTemperatureSource {
+    if (waterTempCelsius == null) return null;
+    return waterTemperatureSource ?? SwimTemperatureSource.oceanApi;
   }
 
   SwimSession copyWith({
@@ -91,6 +131,7 @@ class SwimSession {
     double? heartRateMax,
     double? calories,
     double? waterTempCelsius,
+    SwimTemperatureSource? waterTemperatureSource,
     double? airTempCelsius,
     String? locationLabel,
     bool? jellyfishAlert,
@@ -105,6 +146,8 @@ class SwimSession {
         heartRateMax: heartRateMax ?? this.heartRateMax,
         calories: calories ?? this.calories,
         waterTempCelsius: waterTempCelsius ?? this.waterTempCelsius,
+        waterTemperatureSource:
+            waterTemperatureSource ?? this.waterTemperatureSource,
         airTempCelsius: airTempCelsius ?? this.airTempCelsius,
         locationLabel: locationLabel ?? this.locationLabel,
         jellyfishAlert: jellyfishAlert ?? this.jellyfishAlert,
