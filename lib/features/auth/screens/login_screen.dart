@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:swimtracker/shared/widgets/app_shell.dart';
@@ -29,8 +30,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e, st) {
-      debugPrint('Google sign-in error: $e\n$st');
-      setState(() => _error = 'Connexion Google échouée. Réessayez.');
+      if (kDebugMode) {
+        debugPrint('Google sign-in error: $e\n$st');
+      }
+      if (mounted) {
+        setState(() => _error = 'Connexion Google échouée. Réessayez.');
+      }
     } finally {
       if (mounted) setState(() => _loadingGoogle = false);
     }
@@ -48,7 +53,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     } catch (e) {
-      setState(() => _error = 'Connexion Apple échouée. Réessayez.');
+      if (mounted) {
+        setState(() => _error = 'Connexion Apple échouée. Réessayez.');
+      }
     } finally {
       if (mounted) setState(() => _loadingApple = false);
     }

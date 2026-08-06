@@ -1349,14 +1349,33 @@ class _LiveStat extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 18),
           const SizedBox(height: 6),
-          Text(value,
-              style: TextStyle(
+          SizedBox(
+            width: double.infinity,
+            height: 20,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: color)),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 10, color: SwimColors.textMuted)),
+                  color: color,
+                ),
+              ),
+            ),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 10,
+              color: SwimColors.textMuted,
+            ),
+          ),
         ],
       ),
     );

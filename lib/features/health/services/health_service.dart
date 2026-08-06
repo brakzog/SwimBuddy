@@ -45,7 +45,9 @@ class HealthService {
       return await _health.requestAuthorization(_types,
           permissions: permissions);
     } catch (e, st) {
-      debugPrint('Health requestPermissions error: $e\n$st');
+      if (kDebugMode) {
+        debugPrint('Health requestPermissions error: $e\n$st');
+      }
       return false;
     }
   }
