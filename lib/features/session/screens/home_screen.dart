@@ -853,10 +853,12 @@ class _ReportSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final isAlert = report.type.isAlert;
     final source = switch (report.source) {
-      JellyfishReportSource.acri => 'ACRI',
-      JellyfishReportSource.inaturalist => 'iNaturalist',
       JellyfishReportSource.user => 'SwimTracker',
-      JellyfishReportSource.meduseo => 'Meduseo',
+      JellyfishReportSource.inaturalist => 'iNaturalist',
+      JellyfishReportSource.obis => 'OBIS',
+      JellyfishReportSource.gbif => 'GBIF',
+      JellyfishReportSource.meduseo => 'Méduseo',
+      JellyfishReportSource.acri => 'ACRI',
     };
 
     return Padding(
