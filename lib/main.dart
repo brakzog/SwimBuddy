@@ -8,6 +8,7 @@ import 'core/services/auth_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/background_service.dart';
 import 'core/services/prefs_service.dart';
+import 'core/services/observability_service.dart';
 import 'firebase_options.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_shell.dart';
@@ -19,6 +20,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  ObservabilityService.installGlobalCrashHandlers();
 
   await NotificationService.initialize();
   await NotificationService.requestPermission();

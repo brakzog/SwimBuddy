@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:health/health.dart';
 import '../../../core/models/swim_session.dart';
+import '../../../core/services/observability_service.dart';
 
 class HealthResult {
   final double? heartRateAvg;
@@ -48,6 +49,12 @@ class HealthService {
       if (kDebugMode) {
         debugPrint('Health requestPermissions error: $e\n$st');
       }
+      await ObservabilityService.recordNonFatal(
+        e,
+        st,
+        key: 'health_permissions_failure',
+        reason: 'health_permissions_failure',
+      );
       return false;
     }
   }
@@ -130,7 +137,13 @@ class HealthService {
         distanceMeters: totalDistance,
         waterTemperatureCelsius: waterTemperature,
       );
-    } catch (e) {
+    } catch (e, st) {
+      await ObservabilityService.recordNonFatal(
+        e,
+        st,
+        key: 'health_session_data_failure',
+        reason: 'health_session_data_failure',
+      );
       return const HealthResult();
     }
   }
@@ -216,7 +229,13 @@ class HealthService {
         ));
       }
       return sessions;
-    } catch (_) {
+    } catch (e, st) {
+      await ObservabilityService.recordNonFatal(
+        e,
+        st,
+        key: 'health_swim_import_failure',
+        reason: 'health_swim_import_failure',
+      );
       return const [];
     }
   }

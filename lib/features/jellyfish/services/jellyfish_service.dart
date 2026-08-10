@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/location_service.dart';
+import '../../../core/services/observability_service.dart';
 import '../../../core/services/prefs_service.dart';
 import '../models/jellyfish_report.dart';
 
@@ -69,6 +71,10 @@ class JellyfishService {
       return const JellyfishData(error: 'Position GPS indisponible');
     }
 
+    final trace =
+        FirebasePerformance.instance.newTrace('jellyfish_fetch');
+    await trace.start();
+
     try {
       final radiusKm = _prefsService.jellyfishRadiusKm;
       final timeWindowHours = _prefsService.jellyfishTimeWindowHours;
@@ -101,6 +107,10 @@ class JellyfishService {
       _ExternalFetchResult externalResult = acriResult;
 
       if (!externalResult.succeeded) {
+        trace.incrementMetric('fallback_count', 1);
+        await ObservabilityService.log(
+          'Jellyfish fallback: ACRI -> iNaturalist',
+        );
         externalResult = await _fetchINaturalistReports(
           lat: position.latitude,
           lng: position.longitude,
@@ -110,6 +120,10 @@ class JellyfishService {
       }
 
       if (!externalResult.succeeded) {
+        trace.incrementMetric('fallback_count', 1);
+        await ObservabilityService.log(
+          'Jellyfish fallback: iNaturalist -> OBIS',
+        );
         externalResult = await _fetchObisReports(
           lat: position.latitude,
           lng: position.longitude,
@@ -120,6 +134,10 @@ class JellyfishService {
       }
 
       if (!externalResult.succeeded) {
+        trace.incrementMetric('fallback_count', 1);
+        await ObservabilityService.log(
+          'Jellyfish fallback: OBIS -> GBIF',
+        );
         externalResult = await _fetchGbifReports(
           lat: position.latitude,
           lng: position.longitude,
@@ -129,7 +147,22 @@ class JellyfishService {
         );
       }
 
+      if (!externalResult.succeeded) {
+        trace.putAttribute('external_status', 'all_unavailable');
+        await ObservabilityService.recordNonFatal(
+          StateError('All external jellyfish providers are unavailable'),
+          StackTrace.current,
+          key: 'jellyfish_all_external_sources_unavailable',
+          reason: 'jellyfish_all_external_sources_unavailable',
+        );
+      } else {
+        trace.putAttribute('external_status', 'available');
+      }
+
       final externalReports = externalResult.reports;
+      trace.setMetric('community_reports', communityReports.length);
+      trace.setMetric('external_reports', externalReports.length);
+
       final nearbyReports = [...communityReports, ...externalReports]
         ..sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
 
@@ -152,10 +185,25 @@ class JellyfishService {
         reports: nearbyReports,
         fetchedAt: DateTime.now(),
       );
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, st) {
+      await ObservabilityService.recordNonFatal(
+        e,
+        st,
+        key: 'jellyfish_firestore_failure',
+        reason: 'jellyfish_firestore_failure',
+        context: {'code': e.code},
+      );
       return JellyfishData(error: 'Erreur Firestore: ${e.message}');
-    } catch (e) {
+    } catch (e, st) {
+      await ObservabilityService.recordNonFatal(
+        e,
+        st,
+        key: 'jellyfish_fetch_failure',
+        reason: 'jellyfish_fetch_failure',
+      );
       return JellyfishData(error: 'Erreur: $e');
+    } finally {
+      await trace.stop();
     }
   }
 
@@ -186,6 +234,32 @@ class JellyfishService {
             )))
         .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
         .toList();
+  }
+
+  Future<void> _recordExternalProviderFailure(
+    String provider,
+    Object error,
+    StackTrace stack,
+  ) async {
+    int? httpStatus;
+    String errorType = error.runtimeType.toString();
+
+    if (error is DioException) {
+      httpStatus = error.response?.statusCode;
+      errorType = error.type.name;
+    }
+
+    await ObservabilityService.recordNonFatal(
+      error,
+      stack,
+      key: 'jellyfish_provider_${provider.toLowerCase()}',
+      reason: 'jellyfish_provider_unavailable',
+      context: {
+        'provider': provider,
+        'http_status': httpStatus,
+        'error_type': errorType,
+      },
+    );
   }
 
   Future<_ExternalFetchResult> _fetchAcriReports({
@@ -231,7 +305,8 @@ class JellyfishService {
           .toList();
 
       return _ExternalFetchResult.success(reports);
-    } catch (_) {
+    } catch (e, st) {
+      await _recordExternalProviderFailure('ACRI', e, st);
       return const _ExternalFetchResult.failure();
     }
   }
@@ -331,7 +406,8 @@ class JellyfishService {
           .toList();
 
       return _ExternalFetchResult.success(reports);
-    } catch (_) {
+    } catch (e, st) {
+      await _recordExternalProviderFailure('iNaturalist', e, st);
       return const _ExternalFetchResult.failure();
     }
   }
@@ -435,7 +511,8 @@ class JellyfishService {
           .toList();
 
       return _ExternalFetchResult.success(reports);
-    } catch (_) {
+    } catch (e, st) {
+      await _recordExternalProviderFailure('OBIS', e, st);
       return const _ExternalFetchResult.failure();
     }
   }
@@ -543,7 +620,8 @@ class JellyfishService {
           .toList();
 
       return _ExternalFetchResult.success(reports);
-    } catch (_) {
+    } catch (e, st) {
+      await _recordExternalProviderFailure('GBIF', e, st);
       return const _ExternalFetchResult.failure();
     }
   }

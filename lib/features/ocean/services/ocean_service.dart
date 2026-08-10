@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/services/observability_service.dart';
 
 class OceanData {
   final double? seaTempCelsius;
@@ -101,9 +102,25 @@ class OceanService {
         latitude: lat,
         longitude: lon,
       );
-    } on DioException catch (e) {
+    } on DioException catch (e, st) {
+      await ObservabilityService.recordNonFatal(
+        e,
+        st,
+        key: 'ocean_api_failure',
+        reason: 'ocean_api_failure',
+        context: {
+          'http_status': e.response?.statusCode,
+          'error_type': e.type.name,
+        },
+      );
       return OceanData(error: 'Erreur réseau: ${e.message}');
-    } catch (e) {
+    } catch (e, st) {
+      await ObservabilityService.recordNonFatal(
+        e,
+        st,
+        key: 'ocean_fetch_failure',
+        reason: 'ocean_fetch_failure',
+      );
       return OceanData(error: 'Erreur: $e');
     }
   }

@@ -56,7 +56,6 @@ class DefaultFirebaseOptions {
     projectId: 'swimbuddy-app',
     storageBucket: 'swimbuddy-app.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCnCWMZeO5jLxZ44wVp69_qO6cTdmzlVvs',
     appId: '1:450499877642:ios:57bdac362002700dc538f3',
@@ -67,5 +66,4 @@ class DefaultFirebaseOptions {
     iosClientId: '450499877642-n7lb6icqa83q3scen009uv60v4srrnrr.apps.googleusercontent.com',
     iosBundleId: 'com.jro.swimtracker',
   );
-
 }
