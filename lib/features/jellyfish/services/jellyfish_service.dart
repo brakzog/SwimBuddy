@@ -44,6 +44,10 @@ class JellyfishService {
   static const _acriBaseUrl = 'https://meduse.acri.fr/api/v1';
   static const _inaturalistTaxonId = 48332; // Scyphozoa, true jellyfish.
   static const _inaturalistBaseUrl = 'https://api.inaturalist.org/v1';
+  static const _obisBaseUrl = 'https://api.obis.org/v3';
+  static const _gbifBaseUrl = 'https://api.gbif.org/v1';
+  static const _scyphozoaScientificName = 'Scyphozoa';
+  static const _externalTimeout = Duration(seconds: 6);
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -79,7 +83,14 @@ class JellyfishService {
         since: since,
       );
 
-      final acriReports = await _fetchAcriReports(
+      // Les signalements SwimTracker sont toujours conservés en parallèle.
+      // Pour les sources externes, on utilise un vrai fallback de disponibilité :
+      // ACRI -> iNaturalist -> OBIS -> GBIF.
+      //
+      // Important : une réponse HTTP valide mais vide n'est PAS considérée
+      // comme une panne. Dans ce cas on respecte la source principale et on
+      // n'interroge pas inutilement les fallbacks.
+      final acriResult = await _fetchAcriReports(
         lat: position.latitude,
         lng: position.longitude,
         radiusKm: radiusKm,
@@ -87,18 +98,38 @@ class JellyfishService {
         since: since,
       );
 
-      // iNaturalist reste un fallback légal/gratuit, mais ACRI est bien plus
-      // pertinent pour la France car il gère aussi les observations "none".
-      final inaturalistReports = acriReports.isEmpty
-          ? await _fetchINaturalistReports(
-              lat: position.latitude,
-              lng: position.longitude,
-              radiusKm: radiusKm,
-              now: now,
-            )
-          : const <JellyfishReport>[];
+      _ExternalFetchResult externalResult = acriResult;
 
-      final externalReports = [...acriReports, ...inaturalistReports];
+      if (!externalResult.succeeded) {
+        externalResult = await _fetchINaturalistReports(
+          lat: position.latitude,
+          lng: position.longitude,
+          radiusKm: radiusKm,
+          now: now,
+        );
+      }
+
+      if (!externalResult.succeeded) {
+        externalResult = await _fetchObisReports(
+          lat: position.latitude,
+          lng: position.longitude,
+          radiusKm: radiusKm,
+          now: now,
+          since: since,
+        );
+      }
+
+      if (!externalResult.succeeded) {
+        externalResult = await _fetchGbifReports(
+          lat: position.latitude,
+          lng: position.longitude,
+          radiusKm: radiusKm,
+          now: now,
+          since: since,
+        );
+      }
+
+      final externalReports = externalResult.reports;
       final nearbyReports = [...communityReports, ...externalReports]
         ..sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
 
@@ -157,7 +188,7 @@ class JellyfishService {
         .toList();
   }
 
-  Future<List<JellyfishReport>> _fetchAcriReports({
+  Future<_ExternalFetchResult> _fetchAcriReports({
     required double lat,
     required double lng,
     required double radiusKm,
@@ -174,19 +205,19 @@ class JellyfishService {
           'limit': 300,
         },
         options: Options(
-          sendTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 8),
+          sendTimeout: _externalTimeout,
+          receiveTimeout: _externalTimeout,
           headers: {
             'Accept': 'application/json',
-            'User-Agent': 'SwimBuddy/1.0 (ACRI Meduse public API lookup)',
+            'User-Agent': 'SwimTracker/1.1 (ACRI Meduse lookup)',
           },
         ),
       );
 
       final values = response.data?['value'];
-      if (values is! List) return const [];
+      if (values is! List) return const _ExternalFetchResult.success([]);
 
-      return values
+      final reports = values
           .whereType<Map<String, dynamic>>()
           .map((json) => _reportFromAcri(json, now))
           .whereType<JellyfishReport>()
@@ -198,10 +229,10 @@ class JellyfishService {
               )))
           .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
           .toList();
+
+      return _ExternalFetchResult.success(reports);
     } catch (_) {
-      // ACRI est la source externe principale, mais elle reste externe :
-      // si elle répond mal, l'app continue avec Firestore puis iNaturalist.
-      return const [];
+      return const _ExternalFetchResult.failure();
     }
   }
 
@@ -249,7 +280,7 @@ class JellyfishService {
     };
   }
 
-  Future<List<JellyfishReport>> _fetchINaturalistReports({
+  Future<_ExternalFetchResult> _fetchINaturalistReports({
     required double lat,
     required double lng,
     required double radiusKm,
@@ -275,18 +306,18 @@ class JellyfishService {
           'per_page': 50,
         },
         options: Options(
-          sendTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 8),
+          sendTimeout: _externalTimeout,
+          receiveTimeout: _externalTimeout,
           headers: {
-            'User-Agent': 'SwimBuddy/1.0 (jellyfish lookup; iNaturalist API)',
+            'User-Agent': 'SwimTracker/1.1 (jellyfish lookup; iNaturalist API)',
           },
         ),
       );
 
       final results = response.data?['results'];
-      if (results is! List) return const [];
+      if (results is! List) return const _ExternalFetchResult.success([]);
 
-      return results
+      final reports = results
           .whereType<Map<String, dynamic>>()
           .map((json) => _reportFromINaturalist(json, now))
           .whereType<JellyfishReport>()
@@ -298,10 +329,10 @@ class JellyfishService {
               )))
           .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
           .toList();
+
+      return _ExternalFetchResult.success(reports);
     } catch (_) {
-      // L'API externe est un bonus : si elle répond mal ou pas du tout,
-      // l'app reste utilisable avec les signalements communautaires Firestore.
-      return const [];
+      return const _ExternalFetchResult.failure();
     }
   }
 
@@ -352,6 +383,240 @@ class JellyfishService {
     return (lat, lng);
   }
 
+  Future<_ExternalFetchResult> _fetchObisReports({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required DateTime now,
+    required DateTime since,
+  }) async {
+    try {
+      // OBIS accepte une géométrie WKT. On utilise une bounding box légère,
+      // puis le rayon exact est contrôlé localement avec Haversine.
+      final bounds = _boundingBox(lat, lng, radiusKm);
+      final polygon = _wktPolygon(bounds);
+
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_obisBaseUrl/occurrence',
+        queryParameters: {
+          'scientificname': _scyphozoaScientificName,
+          'startdate': _formatDate(since),
+          'enddate': _formatDate(now),
+          'geometry': polygon,
+          'limit': 100,
+        },
+        options: Options(
+          sendTimeout: _externalTimeout,
+          receiveTimeout: _externalTimeout,
+          headers: const {
+            'Accept': 'application/json',
+            'User-Agent': 'SwimTracker/1.1 (jellyfish lookup; OBIS API)',
+          },
+        ),
+      );
+
+      final results = response.data?['results'];
+      if (results is! List) {
+        return const _ExternalFetchResult.success([]);
+      }
+
+      final reports = results
+          .whereType<Map<String, dynamic>>()
+          .map((json) => _reportFromObis(json, now))
+          .whereType<JellyfishReport>()
+          .where((report) => report.reportedAt.isAfter(since))
+          .map((report) => report.copyWithDistance(_haversineKm(
+                lat,
+                lng,
+                report.lat,
+                report.lng,
+              )))
+          .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
+          .toList();
+
+      return _ExternalFetchResult.success(reports);
+    } catch (_) {
+      return const _ExternalFetchResult.failure();
+    }
+  }
+
+  JellyfishReport? _reportFromObis(
+    Map<String, dynamic> json,
+    DateTime now,
+  ) {
+    final id = json['id'] ?? json['occurrenceID'] ?? json['catalogNumber'];
+    final lat = _readDouble(json['decimalLatitude']);
+    final lng = _readDouble(json['decimalLongitude']);
+    if (id == null || lat == null || lng == null) return null;
+
+    final observedAt = _readDate(json['eventDate']) ??
+        _readDate(json['date_mid']) ??
+        _readDate(json['date_start']) ??
+        now;
+    final species = (json['scientificName'] ??
+        json['species'] ??
+        json['acceptedNameUsage']) as String?;
+
+    return JellyfishReport(
+      id: 'obis_$id',
+      type: JellyfishReportType.few,
+      source: JellyfishReportSource.obis,
+      lat: lat,
+      lng: lng,
+      reportedAt: observedAt,
+      expiresAt: observedAt.add(const Duration(days: 7)),
+      species: species,
+      locationLabel: 'Observation OBIS',
+    );
+  }
+
+  Future<_ExternalFetchResult> _fetchGbifReports({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required DateTime now,
+    required DateTime since,
+  }) async {
+    try {
+      // Résolution dynamique du taxon : on évite de figer un taxonKey GBIF
+      // susceptible d'évoluer avec leurs référentiels taxonomiques.
+      final matchResponse = await _dio.get<Map<String, dynamic>>(
+        '$_gbifBaseUrl/species/match',
+        queryParameters: {'name': _scyphozoaScientificName},
+        options: Options(
+          sendTimeout: _externalTimeout,
+          receiveTimeout: _externalTimeout,
+          headers: const {
+            'Accept': 'application/json',
+            'User-Agent': 'SwimTracker/1.1 (jellyfish lookup; GBIF API)',
+          },
+        ),
+      );
+
+      final taxonKey = matchResponse.data?['usageKey'] ??
+          matchResponse.data?['taxonKey'] ??
+          matchResponse.data?['key'];
+      if (taxonKey == null) {
+        return const _ExternalFetchResult.failure();
+      }
+
+      final bounds = _boundingBox(lat, lng, radiusKm);
+      final response = await _dio.get<Map<String, dynamic>>(
+        '$_gbifBaseUrl/occurrence/search',
+        queryParameters: {
+          'taxonKey': taxonKey,
+          'hasCoordinate': true,
+          'occurrenceStatus': 'PRESENT',
+          'eventDate':
+              '${_formatDate(since)},${_formatDate(now)}',
+          'decimalLatitude': '${bounds.south},${bounds.north}',
+          'decimalLongitude': '${bounds.west},${bounds.east}',
+          'limit': 100,
+        },
+        options: Options(
+          sendTimeout: _externalTimeout,
+          receiveTimeout: _externalTimeout,
+          headers: const {
+            'Accept': 'application/json',
+            'User-Agent': 'SwimTracker/1.1 (jellyfish lookup; GBIF API)',
+          },
+        ),
+      );
+
+      final results = response.data?['results'];
+      if (results is! List) {
+        return const _ExternalFetchResult.success([]);
+      }
+
+      final reports = results
+          .whereType<Map<String, dynamic>>()
+          .map((json) => _reportFromGbif(json, now))
+          .whereType<JellyfishReport>()
+          .where((report) => report.reportedAt.isAfter(since))
+          .map((report) => report.copyWithDistance(_haversineKm(
+                lat,
+                lng,
+                report.lat,
+                report.lng,
+              )))
+          .where((report) => (report.distanceKm ?? double.infinity) <= radiusKm)
+          .toList();
+
+      return _ExternalFetchResult.success(reports);
+    } catch (_) {
+      return const _ExternalFetchResult.failure();
+    }
+  }
+
+  JellyfishReport? _reportFromGbif(
+    Map<String, dynamic> json,
+    DateTime now,
+  ) {
+    final id = json['key'] ?? json['gbifID'] ?? json['occurrenceID'];
+    final lat = _readDouble(json['decimalLatitude']);
+    final lng = _readDouble(json['decimalLongitude']);
+    if (id == null || lat == null || lng == null) return null;
+
+    final observedAt = _readDate(json['eventDate']) ??
+        _dateFromParts(json['year'], json['month'], json['day']) ??
+        now;
+    final species = (json['scientificName'] ??
+        json['species'] ??
+        json['acceptedScientificName']) as String?;
+
+    return JellyfishReport(
+      id: 'gbif_$id',
+      type: JellyfishReportType.few,
+      source: JellyfishReportSource.gbif,
+      lat: lat,
+      lng: lng,
+      reportedAt: observedAt,
+      expiresAt: observedAt.add(const Duration(days: 7)),
+      species: species,
+      locationLabel: 'Observation GBIF',
+    );
+  }
+
+  double? _readDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  DateTime? _dateFromParts(Object? year, Object? month, Object? day) {
+    final y = year is num ? year.toInt() : int.tryParse('$year');
+    if (y == null) return null;
+    final m = month is num ? month.toInt() : int.tryParse('$month') ?? 1;
+    final d = day is num ? day.toInt() : int.tryParse('$day') ?? 1;
+    try {
+      return DateTime.utc(y, m, d);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  _GeoBounds _boundingBox(double lat, double lng, double radiusKm) {
+    final latDelta = radiusKm / 111.32;
+    final cosLat = math.cos(_toRad(lat)).abs().clamp(0.01, 1.0);
+    final lngDelta = radiusKm / (111.32 * cosLat);
+    return _GeoBounds(
+      south: (lat - latDelta).clamp(-90.0, 90.0),
+      north: (lat + latDelta).clamp(-90.0, 90.0),
+      west: (lng - lngDelta).clamp(-180.0, 180.0),
+      east: (lng + lngDelta).clamp(-180.0, 180.0),
+    );
+  }
+
+  String _wktPolygon(_GeoBounds b) {
+    return 'POLYGON(('
+        '${b.west} ${b.south},'
+        '${b.east} ${b.south},'
+        '${b.east} ${b.north},'
+        '${b.west} ${b.north},'
+        '${b.west} ${b.south}'
+        '))';
+  }
+
   Future<void> submitUserReport(JellyfishReportType type) async {
     final user = _auth.currentUser;
     if (user == null) throw StateError('Utilisateur non connecté');
@@ -399,6 +664,30 @@ class JellyfishService {
   }
 
   double _toRad(double degrees) => degrees * math.pi / 180;
+}
+
+class _ExternalFetchResult {
+  final bool succeeded;
+  final List<JellyfishReport> reports;
+
+  const _ExternalFetchResult.success(this.reports) : succeeded = true;
+  const _ExternalFetchResult.failure()
+      : succeeded = false,
+        reports = const [];
+}
+
+class _GeoBounds {
+  final double south;
+  final double north;
+  final double west;
+  final double east;
+
+  const _GeoBounds({
+    required this.south,
+    required this.north,
+    required this.west,
+    required this.east,
+  });
 }
 
 final jellyfishServiceProvider = Provider<JellyfishService>((ref) {

@@ -26,6 +26,8 @@ enum JellyfishReportType {
 enum JellyfishReportSource {
   user,
   inaturalist,
+  obis,
+  gbif,
   meduseo,
   acri;
 
