@@ -711,7 +711,6 @@ class JellyfishService {
       'reportedAt': Timestamp.fromDate(now),
       'expiresAt': Timestamp.fromDate(now.add(const Duration(hours: 24))),
       'createdAt': FieldValue.serverTimestamp(),
-      'createdBy': user.uid,
     });
   }
 
