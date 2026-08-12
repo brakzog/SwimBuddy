@@ -237,30 +237,37 @@ class JellyfishService {
   }
 
   Future<void> _recordExternalProviderFailure(
-    String provider,
-    Object error,
-    StackTrace stack,
-  ) async {
-    int? httpStatus;
-    String errorType = error.runtimeType.toString();
+  String provider,
+  Object error,
+  StackTrace stack,
+) async {
+  int? httpStatus;
+  String errorType = error.runtimeType.toString();
 
-    if (error is DioException) {
-      httpStatus = error.response?.statusCode;
-      errorType = error.type.name;
-    }
-
-    await ObservabilityService.recordNonFatal(
-      error,
-      stack,
-      key: 'jellyfish_provider_${provider.toLowerCase()}',
-      reason: 'jellyfish_provider_unavailable',
-      context: {
-        'provider': provider,
-        'http_status': httpStatus,
-        'error_type': errorType,
-      },
-    );
+  if (error is DioException) {
+    httpStatus = error.response?.statusCode;
+    errorType = error.type.name;
   }
+
+  final sanitizedError = Exception(
+    'External jellyfish API failure: '
+    'provider=$provider, '
+    'status=${httpStatus ?? 'unknown'}, '
+    'type=$errorType',
+  );
+
+  await ObservabilityService.recordNonFatal(
+    sanitizedError,
+    stack,
+    key: 'jellyfish_provider_${provider.toLowerCase()}',
+    reason: 'jellyfish_provider_unavailable',
+    context: {
+      'provider': provider,
+      'http_status': httpStatus,
+      'error_type': errorType,
+    },
+  );
+}
 
   Future<_ExternalFetchResult> _fetchAcriReports({
     required double lat,

@@ -103,16 +103,25 @@ class OceanService {
         longitude: lon,
       );
     } on DioException catch (e, st) {
-      await ObservabilityService.recordNonFatal(
-        e,
-        st,
-        key: 'ocean_api_failure',
-        reason: 'ocean_api_failure',
-        context: {
-          'http_status': e.response?.statusCode,
-          'error_type': e.type.name,
-        },
-      );
+  final sanitizedError = Exception(
+    'Ocean API failure: '
+    'status=${e.response?.statusCode ?? 'unknown'}, '
+    'type=${e.type.name}',
+  );
+
+  await ObservabilityService.recordNonFatal(
+    sanitizedError,
+    st,
+    key: 'ocean_api_failure',
+    reason: 'ocean_api_failure',
+    context: {
+      'http_status': e.response?.statusCode,
+      'error_type': e.type.name,
+    },
+  );
+
+  return OceanData(error: 'Erreur réseau: ${e.message}');
+}
       return OceanData(error: 'Erreur réseau: ${e.message}');
     } catch (e, st) {
       await ObservabilityService.recordNonFatal(
