@@ -38,8 +38,12 @@
         <key>LSRequiresIPhoneOS</key>
         <true/>
 
-        <key>NSHealthShareUsageDescription</key>
-        <string>SwimTracker reads your heart rate, distance and calories from your Apple Watch to track your swim sessions.</string>
+
+		<key>NSHealthShareUsageDescription</key>
+<string>SwimTracker reads your heart rate, distance and calories from your Apple Watch to track your swim sessions.</string>
+
+<key>NSHealthUpdateUsageDescription</key>
+<string>SwimTracker may access HealthKit workout data to manage your swim sessions.</string>
 
         <key>NSLocationWhenInUseUsageDescription</key>
         <string>SwimTracker uses your location to check sea temperature and jellyfish alerts.</string>
