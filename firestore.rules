@@ -15,22 +15,25 @@ service cloud.firestore {
     }
 
     match /jellyfish_reports/{reportId} {
-      allow read: if signedIn();
+  allow read: if signedIn();
 
-      allow create: if signedIn()
-        && request.resource.data.source == 'user'
-        && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.type in ['none', 'few', 'many', 'sting']
-        && request.resource.data.lat is number
-        && request.resource.data.lng is number
-        && request.resource.data.lat >= -90
-        && request.resource.data.lat <= 90
-        && request.resource.data.lng >= -180
-        && request.resource.data.lng <= 180
-        && request.resource.data.reportedAt is timestamp
-        && request.resource.data.expiresAt is timestamp;
+  allow create: if signedIn()
+    && request.resource.data.source == 'user'
+    && (
+      !('createdBy' in request.resource.data)
+      || request.resource.data.createdBy == request.auth.uid
+    )
+    && request.resource.data.type in ['none', 'few', 'many', 'sting']
+    && request.resource.data.lat is number
+    && request.resource.data.lng is number
+    && request.resource.data.lat >= -90
+    && request.resource.data.lat <= 90
+    && request.resource.data.lng >= -180
+    && request.resource.data.lng <= 180
+    && request.resource.data.reportedAt is timestamp
+    && request.resource.data.expiresAt is timestamp;
 
-      allow update, delete: if false;
-    }
+  allow update, delete: if false;
+}
   }
 }
